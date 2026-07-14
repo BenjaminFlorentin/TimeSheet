@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { deleteEntry, loadEntries } from '../storage';
 import {
   formatDuration,
-  formatPercent,
+  formatRatio,
   groupByMonth,
   ratioOverEight,
   totalMinutes,
@@ -31,11 +31,11 @@ export default function Details() {
         <div className="flex items-baseline justify-between mt-2">
           <p className="text-2xl font-semibold">{formatDuration(grandTotal)}</p>
           <p className="text-lg font-medium text-accent2">
-            {formatPercent(totalRatio)}
+            {formatRatio(totalRatio)}
           </p>
         </div>
         <p className="text-xs text-muted mt-1">
-          Chaque heure supp est divisée par 8 (1 journée = 100%)
+          Chaque heure supp est divisée par 8 (1 journée = 1)
         </p>
       </div>
 
@@ -56,7 +56,7 @@ export default function Details() {
                     {group.key}
                   </h2>
                   <span className="text-xs text-muted">
-                    {formatDuration(groupTotal)} · {formatPercent(groupRatio)}
+                    {formatDuration(groupTotal)} · {formatRatio(groupRatio)}
                   </span>
                 </div>
                 <div className="space-y-2">
@@ -64,7 +64,7 @@ export default function Details() {
                     <EntryCard
                       key={e.id}
                       entry={e}
-                      showPercent
+                      showRatio
                       onDelete={handleDelete}
                     />
                   ))}

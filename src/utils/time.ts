@@ -21,10 +21,8 @@ export function ratioOverEight(entry: Entry): number {
   return (entry.hours + entry.minutes / 60) / 8;
 }
 
-export function formatPercent(ratio: number): string {
-  const percent = ratio * 100;
-  const rounded = Math.round(percent * 100) / 100;
-  return `${rounded.toString().replace('.', ',')}%`;
+export function formatRatio(ratio: number): string {
+  return Number(ratio.toFixed(4)).toString();
 }
 
 export function todayIso(): string {

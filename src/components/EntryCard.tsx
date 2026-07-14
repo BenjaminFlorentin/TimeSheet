@@ -3,19 +3,19 @@ import {
   entryMinutes,
   formatDuration,
   formatLongDate,
-  formatPercent,
+  formatRatio,
   ratioOverEight,
 } from '../utils/time';
 
 type Props = {
   entry: Entry;
   onDelete?: (id: string) => void;
-  showPercent?: boolean;
+  showRatio?: boolean;
 };
 
-export default function EntryCard({ entry, onDelete, showPercent = false }: Props) {
+export default function EntryCard({ entry, onDelete, showRatio = false }: Props) {
   const duration = formatDuration(entryMinutes(entry));
-  const percent = showPercent ? formatPercent(ratioOverEight(entry)) : null;
+  const ratio = showRatio ? formatRatio(ratioOverEight(entry)) : null;
   return (
     <div className="bg-surface rounded-xl p-4 border border-surface2 flex items-start gap-3">
       <div className="flex-1 min-w-0">
@@ -26,9 +26,9 @@ export default function EntryCard({ entry, onDelete, showPercent = false }: Prop
         )}
       </div>
       <div className="flex flex-col items-end gap-2">
-        {percent && (
+        {ratio && (
           <span className="text-xs bg-accent2/20 text-accent2 rounded-full px-2 py-1 font-medium">
-            {percent}
+            {ratio}
           </span>
         )}
         {onDelete && (

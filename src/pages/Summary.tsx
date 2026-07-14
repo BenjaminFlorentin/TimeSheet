@@ -51,7 +51,7 @@ export default function Summary() {
         ) : (
           <div className="space-y-2">
             {recent.map((e) => (
-              <EntryCard key={e.id + tick} entry={e} />
+              <EntryCard key={e.id + tick} entry={e} showRatio />
             ))}
           </div>
         )}
