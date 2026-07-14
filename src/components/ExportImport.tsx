@@ -1,13 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { exportXlsxFile, exportXlsxMail, importJson } from '../storage';
+import {
+  buildXlsxAttachment,
+  exportXlsxFile,
+  fallbackMailWithDownload,
+  importJson,
+  shareXlsxAttachmentSync,
+} from '../storage';
 
 type Props = {
   onImported: () => void;
 };
 
+type PreparedAttachment = { blob: Blob; filename: string };
+
 export default function ExportImport({ onImported }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const preparedRef = useRef<PreparedAttachment | null>(null);
+  const buildingRef = useRef(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -25,6 +35,31 @@ export default function ExportImport({ onImported }: Props) {
     };
   }, [menuOpen]);
 
+  function toggleMenu() {
+    const opening = !menuOpen;
+    setMenuOpen(opening);
+    if (opening) {
+      // Kick off XLSX generation in the background while the user is choosing.
+      // Purpose: when they tap "Mail", the blob is already ready and we can call
+      // navigator.share() without any preceding await, preserving the transient
+      // user activation that Chrome Android otherwise consumes on the first await.
+      preparedRef.current = null;
+      if (!buildingRef.current) {
+        buildingRef.current = true;
+        buildXlsxAttachment()
+          .then((prepared) => {
+            preparedRef.current = prepared;
+          })
+          .catch(() => {
+            preparedRef.current = null;
+          })
+          .finally(() => {
+            buildingRef.current = false;
+          });
+      }
+    }
+  }
+
   async function handleExportFile() {
     setMenuOpen(false);
     try {
@@ -36,8 +71,30 @@ export default function ExportImport({ onImported }: Props) {
 
   async function handleExportMail() {
     setMenuOpen(false);
+    const prepared = preparedRef.current;
+
+    if (prepared) {
+      preparedRef.current = null;
+      // Synchronous path: no await before share(), so Chrome Android keeps the
+      // user activation from this click and doesn't throw NotAllowedError.
+      const attempt = shareXlsxAttachmentSync(prepared.blob, prepared.filename);
+      if (attempt.shared && attempt.promise) {
+        try {
+          await attempt.promise;
+          return;
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
+        }
+      }
+      fallbackMailWithDownload(prepared.blob, prepared.filename);
+      return;
+    }
+
+    // Blob not ready yet (user was very fast, or generation failed). Build it now
+    // and use the download + mailto fallback — the await would break sharing anyway.
     try {
-      await exportXlsxMail();
+      const built = await buildXlsxAttachment();
+      fallbackMailWithDownload(built.blob, built.filename);
     } catch (err) {
       alert(`Export échoué : ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -66,7 +123,7 @@ export default function ExportImport({ onImported }: Props) {
       <div className="relative" ref={menuRef}>
         <button
           type="button"
-          onClick={() => setMenuOpen((v) => !v)}
+          onClick={toggleMenu}
           className="px-3 py-1.5 text-xs bg-surface2 text-slate-100 rounded-full flex items-center gap-1"
           aria-haspopup="menu"
           aria-expanded={menuOpen}

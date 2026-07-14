@@ -66,6 +66,38 @@ const XLSX_MIME =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const MAIL_SUBJECT = 'Export des heures supplémentaires';
 
+export async function buildXlsxAttachment(): Promise<{
+  blob: Blob;
+  filename: string;
+}> {
+  const blob = await buildXlsxBlob();
+  return { blob, filename: `timesheet-${todayStamp()}.xlsx` };
+}
+
+export function shareXlsxAttachmentSync(blob: Blob, filename: string): {
+  shared: boolean;
+  promise?: Promise<void>;
+} {
+  const file = new File([blob], filename, { type: XLSX_MIME });
+  const canShareFile =
+    typeof navigator !== 'undefined' &&
+    typeof navigator.canShare === 'function' &&
+    navigator.canShare({ files: [file] });
+  if (!canShareFile) return { shared: false };
+  return {
+    shared: true,
+    promise: navigator.share({ files: [file], title: MAIL_SUBJECT }),
+  };
+}
+
+export function fallbackMailWithDownload(blob: Blob, filename: string): void {
+  triggerDownload(blob, filename);
+  alert(
+    'Pièce jointe automatique non disponible ici. Le fichier a été téléchargé — joins-le manuellement à ton mail.',
+  );
+  window.location.href = `mailto:?subject=${encodeURIComponent(MAIL_SUBJECT)}`;
+}
+
 async function buildXlsxBlob(): Promise<Blob> {
   const rows = buildRows(loadEntries());
   const headerRow = HEADERS.map((label) => ({
@@ -111,32 +143,17 @@ export async function exportXlsxFile(): Promise<void> {
 }
 
 export async function exportXlsxMail(): Promise<void> {
-  const blob = await buildXlsxBlob();
-  const filename = `timesheet-${todayStamp()}.xlsx`;
-  const file = new File([blob], filename, { type: XLSX_MIME });
-
-  const canShareFile =
-    typeof navigator !== 'undefined' &&
-    typeof navigator.canShare === 'function' &&
-    navigator.canShare({ files: [file] });
-
-  if (canShareFile) {
+  const { blob, filename } = await buildXlsxAttachment();
+  const attempt = shareXlsxAttachmentSync(blob, filename);
+  if (attempt.shared && attempt.promise) {
     try {
-      await navigator.share({ files: [file], title: MAIL_SUBJECT });
+      await attempt.promise;
       return;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      // Toute autre erreur (NotAllowedError sur Chrome Android quand l'activation
-      // utilisateur a été consommée par un await, SecurityError, etc.)
-      // → fallback téléchargement + mailto.
     }
   }
-
-  triggerDownload(blob, filename);
-  alert(
-    'Pièce jointe automatique non disponible sur ce navigateur. Le fichier a été téléchargé — joins-le manuellement à ton mail.',
-  );
-  window.location.href = `mailto:?subject=${encodeURIComponent(MAIL_SUBJECT)}`;
+  fallbackMailWithDownload(blob, filename);
 }
 
 export async function importJson(file: File): Promise<Entry[]> {
