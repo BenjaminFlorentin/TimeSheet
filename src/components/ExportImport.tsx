@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { exportCsvFile, exportCsvMail, importJson } from '../storage';
+import { exportCsvMail, exportXlsxFile, importJson } from '../storage';
 
 type Props = {
   onImported: () => void;
@@ -25,9 +25,13 @@ export default function ExportImport({ onImported }: Props) {
     };
   }, [menuOpen]);
 
-  function handleExportFile() {
-    exportCsvFile();
+  async function handleExportFile() {
     setMenuOpen(false);
+    try {
+      await exportXlsxFile();
+    } catch (err) {
+      alert(`Export échoué : ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   function handleExportMail() {

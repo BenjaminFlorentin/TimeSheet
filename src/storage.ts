@@ -1,3 +1,4 @@
+import writeXlsxFile from 'write-excel-file/browser';
 import type { Entry } from './types';
 import { formatRatio, parseIsoDate, ratioOverEight } from './utils/time';
 
@@ -31,23 +32,30 @@ export function deleteEntry(id: string): Entry[] {
   return entries;
 }
 
-const CSV_HEADER = ['Year', 'Month', 'Day', 'Extra Hour', 'Extra Hour (/8)'];
+const HEADERS = ['Year', 'Month', 'Day', 'Extra Hour', 'Extra Hour (/8)'];
 
-function buildCsv(entries: Entry[]): string {
+type Row = {
+  year: string;
+  month: string;
+  day: string;
+  extraHour: string;
+  extraHourRatio: string;
+};
+
+function buildRows(entries: Entry[]): Row[] {
   const sorted = [...entries].sort((a, b) =>
     a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
   );
-  const rows = sorted.map((e) => {
+  return sorted.map((e) => {
     const d = parseIsoDate(e.date);
-    return [
-      d.getFullYear().toString(),
-      d.toLocaleString('en-US', { month: 'long' }),
-      String(d.getDate()).padStart(2, '0'),
-      (e.hours + e.minutes / 60).toFixed(2),
-      formatRatio(ratioOverEight(e)),
-    ].join(';');
+    return {
+      year: d.getFullYear().toString(),
+      month: d.toLocaleString('en-US', { month: 'long' }),
+      day: String(d.getDate()).padStart(2, '0'),
+      extraHour: (e.hours + e.minutes / 60).toFixed(2),
+      extraHourRatio: formatRatio(ratioOverEight(e)),
+    };
   });
-  return [CSV_HEADER.join(';'), ...rows].join('\r\n');
 }
 
 function todayStamp(): string {
@@ -60,24 +68,44 @@ function formatDateFr(d: Date): string {
   return `${dd}/${mm}/${d.getFullYear()}`;
 }
 
-export function exportCsvFile(): void {
-  const csv = buildCsv(loadEntries());
-  const withBom = '﻿' + csv;
-  const blob = new Blob([withBom], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `timesheet-${todayStamp()}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+export async function exportXlsxFile(): Promise<void> {
+  const rows = buildRows(loadEntries());
+  const headerRow = HEADERS.map((label) => ({
+    value: label,
+    fontWeight: 'bold' as const,
+    align: 'center' as const,
+    alignVertical: 'center' as const,
+    wrap: true,
+  }));
+  const dataRows = rows.map((r) =>
+    [r.year, r.month, r.day, r.extraHour, r.extraHourRatio].map((v) => ({
+      value: v,
+      align: 'left' as const,
+    })),
+  );
+  const workbook = await writeXlsxFile([headerRow, ...dataRows], {
+    sheet: 'TimeSheet',
+    columns: [
+      { width: 8 },
+      { width: 14 },
+      { width: 6 },
+      { width: 14 },
+      { width: 18 },
+    ],
+  });
+  await workbook.toFile(`timesheet-${todayStamp()}.xlsx`);
 }
 
 export function exportCsvMail(): void {
-  const csv = buildCsv(loadEntries());
+  const rows = buildRows(loadEntries());
+  const csvBody = [
+    HEADERS.join(';'),
+    ...rows.map((r) =>
+      [r.year, r.month, r.day, r.extraHour, r.extraHourRatio].join(';'),
+    ),
+  ].join('\r\n');
   const subject = `TimeSheet - Export du ${formatDateFr(new Date())}`;
-  const href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(csv)}`;
+  const href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(csvBody)}`;
   window.location.href = href;
 }
 
