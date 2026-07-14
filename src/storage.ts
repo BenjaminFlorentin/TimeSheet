@@ -1,4 +1,11 @@
-import type { Entry, ExportPayload } from './types';
+import type { Entry } from './types';
+import {
+  entryMinutes,
+  formatDuration,
+  formatRatio,
+  parseIsoDate,
+  ratioOverEight,
+} from './utils/time';
 
 const STORAGE_KEY = 'timesheet.entries';
 
@@ -30,24 +37,54 @@ export function deleteEntry(id: string): Entry[] {
   return entries;
 }
 
-export function exportJson(): void {
-  const payload: ExportPayload = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    entries: loadEntries(),
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: 'application/json',
+const CSV_HEADER = ['année', 'mois', 'jour', 'heure supp', 'heure supp /8'];
+
+function buildCsv(entries: Entry[]): string {
+  const sorted = [...entries].sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+  );
+  const rows = sorted.map((e) => {
+    const d = parseIsoDate(e.date);
+    return [
+      d.getFullYear().toString(),
+      String(d.getMonth() + 1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0'),
+      formatDuration(entryMinutes(e)),
+      formatRatio(ratioOverEight(e)),
+    ].join(';');
   });
+  return [CSV_HEADER.join(';'), ...rows].join('\r\n');
+}
+
+function todayStamp(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatDateFr(d: Date): string {
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+export function exportCsvFile(): void {
+  const csv = buildCsv(loadEntries());
+  const withBom = '﻿' + csv;
+  const blob = new Blob([withBom], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const stamp = new Date().toISOString().slice(0, 10);
   a.href = url;
-  a.download = `timesheet-${stamp}.json`;
+  a.download = `timesheet-${todayStamp()}.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+export function exportCsvMail(): void {
+  const csv = buildCsv(loadEntries());
+  const subject = `TimeSheet - Export du ${formatDateFr(new Date())}`;
+  const href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(csv)}`;
+  window.location.href = href;
 }
 
 export async function importJson(file: File): Promise<Entry[]> {
