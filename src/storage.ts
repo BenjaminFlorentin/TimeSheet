@@ -1,11 +1,5 @@
 import type { Entry } from './types';
-import {
-  entryMinutes,
-  formatDuration,
-  formatRatio,
-  parseIsoDate,
-  ratioOverEight,
-} from './utils/time';
+import { formatRatio, parseIsoDate, ratioOverEight } from './utils/time';
 
 const STORAGE_KEY = 'timesheet.entries';
 
@@ -37,7 +31,7 @@ export function deleteEntry(id: string): Entry[] {
   return entries;
 }
 
-const CSV_HEADER = ['année', 'mois', 'jour', 'heure supp', 'heure supp /8'];
+const CSV_HEADER = ['Year', 'Month', 'Day', 'Extra Hour', 'Extra Hour (/8)'];
 
 function buildCsv(entries: Entry[]): string {
   const sorted = [...entries].sort((a, b) =>
@@ -47,9 +41,9 @@ function buildCsv(entries: Entry[]): string {
     const d = parseIsoDate(e.date);
     return [
       d.getFullYear().toString(),
-      String(d.getMonth() + 1).padStart(2, '0'),
+      d.toLocaleString('en-US', { month: 'long' }),
       String(d.getDate()).padStart(2, '0'),
-      formatDuration(entryMinutes(e)),
+      (e.hours + e.minutes / 60).toFixed(2),
       formatRatio(ratioOverEight(e)),
     ].join(';');
   });
