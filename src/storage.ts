@@ -62,13 +62,11 @@ function todayStamp(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function formatDateFr(d: Date): string {
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${dd}/${mm}/${d.getFullYear()}`;
-}
+const XLSX_MIME =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const MAIL_SUBJECT = 'Export des heures supplémentaires';
 
-export async function exportXlsxFile(): Promise<void> {
+async function buildXlsxBlob(): Promise<Blob> {
   const rows = buildRows(loadEntries());
   const headerRow = HEADERS.map((label) => ({
     value: label,
@@ -93,20 +91,50 @@ export async function exportXlsxFile(): Promise<void> {
       { width: 18 },
     ],
   });
-  await workbook.toFile(`timesheet-${todayStamp()}.xlsx`);
+  return workbook.toBlob();
 }
 
-export function exportCsvMail(): void {
-  const rows = buildRows(loadEntries());
-  const csvBody = [
-    HEADERS.join(';'),
-    ...rows.map((r) =>
-      [r.year, r.month, r.day, r.extraHour, r.extraHourRatio].join(';'),
-    ),
-  ].join('\r\n');
-  const subject = `TimeSheet - Export du ${formatDateFr(new Date())}`;
-  const href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(csvBody)}`;
-  window.location.href = href;
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function exportXlsxFile(): Promise<void> {
+  const blob = await buildXlsxBlob();
+  triggerDownload(blob, `timesheet-${todayStamp()}.xlsx`);
+}
+
+export async function exportXlsxMail(): Promise<void> {
+  const blob = await buildXlsxBlob();
+  const filename = `timesheet-${todayStamp()}.xlsx`;
+  const file = new File([blob], filename, { type: XLSX_MIME });
+
+  const canShareFile =
+    typeof navigator !== 'undefined' &&
+    typeof navigator.canShare === 'function' &&
+    navigator.canShare({ files: [file] });
+
+  if (canShareFile) {
+    try {
+      await navigator.share({ files: [file], title: MAIL_SUBJECT });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      throw err;
+    }
+    return;
+  }
+
+  triggerDownload(blob, filename);
+  alert(
+    'Pièce jointe automatique non supportée sur ce navigateur. Le fichier a été téléchargé — joins-le manuellement à ton mail.',
+  );
+  window.location.href = `mailto:?subject=${encodeURIComponent(MAIL_SUBJECT)}`;
 }
 
 export async function importJson(file: File): Promise<Entry[]> {
