@@ -123,16 +123,18 @@ export async function exportXlsxMail(): Promise<void> {
   if (canShareFile) {
     try {
       await navigator.share({ files: [file], title: MAIL_SUBJECT });
+      return;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      throw err;
+      // Toute autre erreur (NotAllowedError sur Chrome Android quand l'activation
+      // utilisateur a été consommée par un await, SecurityError, etc.)
+      // → fallback téléchargement + mailto.
     }
-    return;
   }
 
   triggerDownload(blob, filename);
   alert(
-    'Pièce jointe automatique non supportée sur ce navigateur. Le fichier a été téléchargé — joins-le manuellement à ton mail.',
+    'Pièce jointe automatique non disponible sur ce navigateur. Le fichier a été téléchargé — joins-le manuellement à ton mail.',
   );
   window.location.href = `mailto:?subject=${encodeURIComponent(MAIL_SUBJECT)}`;
 }
