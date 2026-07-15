@@ -16,10 +16,25 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        // Stable committed key so every CI build signs identically and
+        // updates install over previous versions. Personal sideloaded app;
+        // this keystore never touches the Play Store.
+        stable {
+            storeFile file('../timesheet.keystore')
+            storePassword 'timesheet-local'
+            keyAlias 'timesheet'
+            keyPassword 'timesheet-local'
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.stable
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.stable
         }
     }
 }

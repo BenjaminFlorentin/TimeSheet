@@ -44,7 +44,7 @@ type Row = {
   extraHourRatio: string;
 };
 
-function buildRows(entries: Entry[]): Row[] {
+export function buildRows(entries: Entry[]): Row[] {
   const sorted = [...entries].sort((a, b) =>
     a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
   );

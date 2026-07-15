@@ -24,6 +24,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
       - run: npm ci
+      - run: npm test
       - run: npm run build:native
       - run: npx cap sync android
       - name: Build debug APK
