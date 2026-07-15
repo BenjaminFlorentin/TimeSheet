@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core';
+import { EmailComposer } from 'capacitor-email-composer';
 import writeXlsxFile from 'write-excel-file/browser';
 import type { Entry } from './types';
 import { formatRatio, parseIsoDate, ratioOverEight } from './utils/time';
@@ -142,8 +144,40 @@ export async function exportXlsxFile(): Promise<void> {
   triggerDownload(blob, `timesheet-${todayStamp()}.xlsx`);
 }
 
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buf = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+async function exportXlsxMailNative(blob: Blob, filename: string): Promise<void> {
+  const base64 = await blobToBase64(blob);
+  await EmailComposer.open({
+    subject: MAIL_SUBJECT,
+    body: '',
+    attachments: [
+      {
+        type: 'base64',
+        path: base64,
+        name: filename,
+      },
+    ],
+  });
+}
+
 export async function exportXlsxMail(): Promise<void> {
   const { blob, filename } = await buildXlsxAttachment();
+
+  if (Capacitor.isNativePlatform()) {
+    await exportXlsxMailNative(blob, filename);
+    return;
+  }
+
   const attempt = shareXlsxAttachmentSync(blob, filename);
   if (attempt.shared && attempt.promise) {
     try {

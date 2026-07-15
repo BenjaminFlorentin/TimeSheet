@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TimeSheet</string>
+    <string name="title_activity_main">TimeSheet</string>
+    <string name="package_name">com.benjaminflorentin.timesheet</string>
+    <string name="custom_url_scheme">com.benjaminflorentin.timesheet</string>
+</resources>
