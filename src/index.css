@@ -58,6 +58,103 @@ body {
   }
 }
 
+/* --- Intro : vif d'or ---------------------------------------------------- */
+
+.snitch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  animation: snitch-overlay-fade 0.45s ease-in 2.1s forwards;
+}
+
+@keyframes snitch-overlay-fade {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.snitch-flight {
+  animation:
+    snitch-hover 0.65s ease-in-out 2 alternate,
+    snitch-fly 0.85s cubic-bezier(0.45, -0.25, 0.85, 0.6) 1.3s forwards;
+}
+
+@keyframes snitch-hover {
+  from {
+    transform: translate(0, 6px) rotate(-2deg);
+  }
+  to {
+    transform: translate(0, -8px) rotate(2deg);
+  }
+}
+
+@keyframes snitch-fly {
+  to {
+    transform: translate(52vw, -48vh) scale(0.18) rotate(18deg);
+    opacity: 0.85;
+  }
+}
+
+.snitch-wing {
+  animation: snitch-flap 0.14s ease-in-out infinite alternate;
+}
+
+.snitch-wing-left {
+  transform-origin: -11px 0;
+}
+
+.snitch-wing-right {
+  transform-origin: 11px 0;
+  animation-name: snitch-flap-right;
+}
+
+@keyframes snitch-flap {
+  from {
+    transform: rotate(10deg);
+  }
+  to {
+    transform: rotate(-32deg);
+  }
+}
+
+@keyframes snitch-flap-right {
+  from {
+    transform: rotate(-10deg);
+  }
+  to {
+    transform: rotate(32deg);
+  }
+}
+
+.snitch-sparkle {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #f9e08a 0%, rgba(232, 185, 35, 0.65) 45%, transparent 75%);
+  opacity: 0;
+  pointer-events: none;
+  animation: snitch-sparkle-pop 0.75s ease-out forwards;
+}
+
+@keyframes snitch-sparkle-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.6) translateY(6px);
+  }
+}
+
 /* Safe areas iOS */
 .safe-top {
   padding-top: env(safe-area-inset-top);
