@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import {
   buildXlsxAttachment,
   exportXlsxFile,
+  exportXlsxMail,
   fallbackMailWithDownload,
   importJson,
   shareXlsxAttachmentSync,
@@ -71,6 +73,18 @@ export default function ExportImport({ onImported }: Props) {
 
   async function handleExportMail() {
     setMenuOpen(false);
+
+    if (Capacitor.isNativePlatform()) {
+      // Android APK: exportXlsxMail routes to the native EmailComposer
+      // Intent, which needs no transient user activation.
+      try {
+        await exportXlsxMail();
+      } catch (err) {
+        alert(`Export échoué : ${err instanceof Error ? err.message : String(err)}`);
+      }
+      return;
+    }
+
     const prepared = preparedRef.current;
 
     if (prepared) {
