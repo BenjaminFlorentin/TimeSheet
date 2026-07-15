@@ -23,7 +23,7 @@ export default function Summary() {
   return (
     <div className="max-w-md mx-auto px-4 pt-6 pb-6">
       <header className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">TimeSheet</h1>
+        <h1 className="text-2xl font-bold font-magic">TimeSheet ⚡</h1>
         <ExportImport onImported={() => setTick((t) => t + 1)} />
       </header>
 
@@ -45,11 +45,11 @@ export default function Summary() {
 
       <section className="mt-8">
         <h2 className="text-sm uppercase tracking-wide text-muted mb-3">
-          Entrées récentes
+          📜 Derniers enchantements
         </h2>
         {recent.length === 0 ? (
           <p className="text-muted text-sm">
-            Aucune entrée. Appuie sur le bouton + pour commencer.
+            Aucun sortilège lancé. <em>Accio</em> heures supp ! 🪄
           </p>
         ) : (
           <div className="space-y-2">
@@ -62,10 +62,10 @@ export default function Summary() {
 
       <Link
         to="/add"
-        className="fixed right-6 bottom-24 bg-accent text-slate-900 rounded-full w-14 h-14 flex items-center justify-center text-3xl font-bold shadow-lg shadow-accent/30 active:scale-95 transition"
+        className="fixed right-6 bottom-24 bg-accent text-slate-900 rounded-full w-14 h-14 flex items-center justify-center text-2xl shadow-lg shadow-accent/30 active:scale-95 transition"
         aria-label="Ajouter une entrée"
       >
-        +
+        🪄
       </Link>
     </div>
   );

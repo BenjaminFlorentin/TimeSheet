@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router-dom';
 
 const items = [
-  { to: '/', label: 'Résumé', icon: '📊' },
-  { to: '/details', label: 'Détails', icon: '📋' },
+  { to: '/', label: 'Résumé', icon: '⚡' },
+  { to: '/details', label: 'Détails', icon: '📜' },
 ];
 
 export default function BottomNav() {

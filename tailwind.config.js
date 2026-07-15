@@ -4,12 +4,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: '#0f172a',
-        surface: '#1e293b',
-        surface2: '#334155',
-        accent: '#38bdf8',
-        accent2: '#a78bfa',
-        muted: '#94a3b8',
+        bg: '#0b0a1c',
+        surface: '#161430',
+        surface2: '#282455',
+        accent: '#e8b923',
+        accent2: '#a678ff',
+        muted: '#9a93c9',
+      },
+      fontFamily: {
+        magic: ['Cinzel', 'serif'],
       },
     },
   },

@@ -26,10 +26,10 @@ export default function Details() {
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6 pb-6" key={tick}>
-      <h1 className="text-2xl font-bold mb-6">Détails</h1>
+      <h1 className="text-2xl font-bold font-magic mb-6">Détails 📜</h1>
 
       <div className="bg-surface rounded-2xl p-4 border border-surface2 mb-6">
-        <p className="text-sm text-muted uppercase tracking-wide">Total cumulé</p>
+        <p className="text-sm text-muted uppercase tracking-wide">🧙 Total cumulé</p>
         <div className="flex items-baseline justify-between mt-2">
           <p className="text-2xl font-semibold">{formatDuration(grandTotal)}</p>
           <p className="text-lg font-medium text-accent2">

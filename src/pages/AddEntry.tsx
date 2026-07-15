@@ -57,8 +57,8 @@ export default function AddEntry() {
   return (
     <div className="max-w-md mx-auto px-4 pt-6 pb-6">
       <header className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">
-          {editing ? "Modifier l'entrée" : 'Nouvelle entrée'}
+        <h1 className="text-2xl font-bold font-magic">
+          {editing ? "Modifier l'entrée ✨" : 'Nouvelle entrée 🪄'}
         </h1>
         <button
           type="button"

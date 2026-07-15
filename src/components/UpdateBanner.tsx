@@ -55,7 +55,9 @@ export default function UpdateBanner() {
       {isNative && apkUrl && (
         <div className="bg-accent/10 border border-accent/40 rounded-xl p-3 flex items-center gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium">Mise à jour disponible</p>
+            <p className="text-sm font-medium">
+              Un hibou t'apporte une mise à jour 🦉
+            </p>
             <p className="text-xs text-muted">
               Télécharge puis ouvre le fichier pour installer.
             </p>

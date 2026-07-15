@@ -96,7 +96,7 @@ export default function ExportImport({ onImported }: Props) {
   function filteredEntries(): ReturnType<typeof loadEntries> | null {
     const filtered = filterByRange(loadEntries(), from, to);
     if (filtered.length === 0) {
-      alert('Aucune heure supp dans cette période.');
+      alert('Aucune magie détectée dans cette période 🔮');
       return null;
     }
     return filtered;
@@ -258,7 +258,7 @@ export default function ExportImport({ onImported }: Props) {
                 disabled={rangeInvalid}
                 className="flex-1 px-2 py-2 text-sm font-medium bg-accent2 text-slate-900 rounded-lg disabled:opacity-40"
               >
-                Mail
+                Mail 🦉
               </button>
             </div>
             <button
