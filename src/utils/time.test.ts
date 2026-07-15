@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { Entry } from '../types';
 import {
   entryMinutes,
+  filterByRange,
   filterThisMonth,
   filterThisWeek,
   formatDuration,
   formatRatio,
   groupByMonth,
+  monthRange,
   parseIsoDate,
   ratioOverEight,
   sortByDateDesc,
@@ -84,6 +86,57 @@ describe('sorting and grouping', () => {
     expect(groups).toHaveLength(2);
     expect(groups[0].entries).toHaveLength(2);
     expect(groups[1].entries).toHaveLength(1);
+  });
+});
+
+describe('monthRange', () => {
+  it('returns first and last day of a 31-day month', () => {
+    expect(monthRange(new Date(2026, 6, 15))).toEqual({
+      from: '2026-07-01',
+      to: '2026-07-31',
+    });
+  });
+
+  it('handles 30-day months and February', () => {
+    expect(monthRange(new Date(2026, 3, 10))).toEqual({
+      from: '2026-04-01',
+      to: '2026-04-30',
+    });
+    expect(monthRange(new Date(2026, 1, 5))).toEqual({
+      from: '2026-02-01',
+      to: '2026-02-28',
+    });
+    expect(monthRange(new Date(2028, 1, 5))).toEqual({
+      from: '2028-02-01',
+      to: '2028-02-29',
+    });
+  });
+});
+
+describe('filterByRange', () => {
+  const all = [
+    entry('2026-06-30', 1, 0),
+    entry('2026-07-01', 1, 0),
+    entry('2026-07-15', 1, 0),
+    entry('2026-07-31', 1, 0),
+    entry('2026-08-01', 1, 0),
+  ];
+
+  it('keeps entries within inclusive bounds', () => {
+    const filtered = filterByRange(all, '2026-07-01', '2026-07-31');
+    expect(filtered.map((e) => e.date)).toEqual([
+      '2026-07-01',
+      '2026-07-15',
+      '2026-07-31',
+    ]);
+  });
+
+  it('returns empty for a range with no entries', () => {
+    expect(filterByRange(all, '2025-01-01', '2025-12-31')).toEqual([]);
+  });
+
+  it('returns everything for a covering range', () => {
+    expect(filterByRange(all, '2026-01-01', '2026-12-31')).toHaveLength(5);
   });
 });
 

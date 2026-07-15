@@ -68,11 +68,11 @@ const XLSX_MIME =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const MAIL_SUBJECT = 'Export des heures supplémentaires';
 
-export async function buildXlsxAttachment(): Promise<{
+export async function buildXlsxAttachment(entries?: Entry[]): Promise<{
   blob: Blob;
   filename: string;
 }> {
-  const blob = await buildXlsxBlob();
+  const blob = await buildXlsxBlob(entries);
   return { blob, filename: `timesheet-${todayStamp()}.xlsx` };
 }
 
@@ -100,8 +100,8 @@ export function fallbackMailWithDownload(blob: Blob, filename: string): void {
   window.location.href = `mailto:?subject=${encodeURIComponent(MAIL_SUBJECT)}`;
 }
 
-async function buildXlsxBlob(): Promise<Blob> {
-  const rows = buildRows(loadEntries());
+async function buildXlsxBlob(entries?: Entry[]): Promise<Blob> {
+  const rows = buildRows(entries ?? loadEntries());
   const headerRow = HEADERS.map((label) => ({
     value: label,
     fontWeight: 'bold' as const,
@@ -139,8 +139,8 @@ function triggerDownload(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-export async function exportXlsxFile(): Promise<void> {
-  const blob = await buildXlsxBlob();
+export async function exportXlsxFile(entries?: Entry[]): Promise<void> {
+  const blob = await buildXlsxBlob(entries);
   triggerDownload(blob, `timesheet-${todayStamp()}.xlsx`);
 }
 
@@ -170,8 +170,8 @@ async function exportXlsxMailNative(blob: Blob, filename: string): Promise<void>
   });
 }
 
-export async function exportXlsxMail(): Promise<void> {
-  const { blob, filename } = await buildXlsxAttachment();
+export async function exportXlsxMail(entries?: Entry[]): Promise<void> {
+  const { blob, filename } = await buildXlsxAttachment(entries);
 
   if (Capacitor.isNativePlatform()) {
     await exportXlsxMailNative(blob, filename);

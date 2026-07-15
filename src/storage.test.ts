@@ -24,6 +24,7 @@ vi.mock('write-excel-file/browser', () => ({
 }));
 
 import { buildRows, exportXlsxMail, saveEntries } from './storage';
+import { filterByRange } from './utils/time';
 
 function entry(date: string, hours: number, minutes: number): Entry {
   return { id: `${date}-${hours}-${minutes}`, date, hours, minutes };
@@ -81,5 +82,31 @@ describe('exportXlsxMail on native platform (regression: routing bug)', () => {
     expect(options.attachments[0].type).toBe('base64');
     expect(options.attachments[0].name).toMatch(/^timesheet-\d{4}-\d{2}-\d{2}\.xlsx$/);
     expect(options.attachments[0].path.length).toBeGreaterThan(0);
+  });
+
+  it('accepts a filtered subset of entries (date-range export)', async () => {
+    nativePlatform = true;
+    const all = [
+      entry('2026-06-15', 1, 0),
+      entry('2026-07-10', 2, 0),
+      entry('2026-08-02', 3, 0),
+    ];
+    saveEntries(all);
+    const july = filterByRange(all, '2026-07-01', '2026-07-31');
+    expect(july).toHaveLength(1);
+
+    await exportXlsxMail(july);
+
+    expect(emailOpen).toHaveBeenCalledTimes(1);
+    // The rows built for July only contain the July entry
+    expect(buildRows(july)).toEqual([
+      {
+        year: '2026',
+        month: 'July',
+        day: '10',
+        extraHour: '2.00',
+        extraHourRatio: '0.25',
+      },
+    ]);
   });
 });

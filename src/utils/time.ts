@@ -57,6 +57,18 @@ export function filterThisWeek(entries: Entry[], now = new Date()): Entry[] {
   });
 }
 
+export function monthRange(d: Date): { from: string; to: string } {
+  const first = new Date(d.getFullYear(), d.getMonth(), 1);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  const iso = (x: Date) =>
+    `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+  return { from: iso(first), to: iso(last) };
+}
+
+export function filterByRange(entries: Entry[], from: string, to: string): Entry[] {
+  return entries.filter((e) => e.date >= from && e.date <= to);
+}
+
 export function filterThisMonth(entries: Entry[], now = new Date()): Entry[] {
   const y = now.getFullYear();
   const m = now.getMonth();

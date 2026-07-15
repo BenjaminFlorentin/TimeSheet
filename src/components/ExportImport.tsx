@@ -6,27 +6,32 @@ import {
   exportXlsxMail,
   fallbackMailWithDownload,
   importJson,
+  loadEntries,
   shareXlsxAttachmentSync,
 } from '../storage';
+import { filterByRange, monthRange, todayIso } from '../utils/time';
 
 type Props = {
   onImported: () => void;
 };
 
-type PreparedAttachment = { blob: Blob; filename: string };
+type PreparedAttachment = { blob: Blob; filename: string; rangeKey: string };
 
 export default function ExportImport({ onImported }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const preparedRef = useRef<PreparedAttachment | null>(null);
-  const buildingRef = useRef(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  const rangeInvalid = from !== '' && to !== '' && from > to;
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!panelOpen) return;
     function handleClickOutside(e: Event) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setPanelOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -35,50 +40,87 @@ export default function ExportImport({ onImported }: Props) {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, [menuOpen]);
+  }, [panelOpen]);
 
-  function toggleMenu() {
-    const opening = !menuOpen;
-    setMenuOpen(opening);
-    if (opening) {
-      // Kick off XLSX generation in the background while the user is choosing.
-      // Purpose: when they tap "Mail", the blob is already ready and we can call
-      // navigator.share() without any preceding await, preserving the transient
-      // user activation that Chrome Android otherwise consumes on the first await.
+  // Pre-generate the XLSX for the current range while the panel is open, so the
+  // web Mail path can call navigator.share() without an await beforehand
+  // (Chrome consumes the transient user activation on the first await).
+  useEffect(() => {
+    if (!panelOpen || rangeInvalid || !from || !to) return;
+    const rangeKey = `${from}..${to}`;
+    let cancelled = false;
+    const filtered = filterByRange(loadEntries(), from, to);
+    if (filtered.length === 0) {
       preparedRef.current = null;
-      if (!buildingRef.current) {
-        buildingRef.current = true;
-        buildXlsxAttachment()
-          .then((prepared) => {
-            preparedRef.current = prepared;
-          })
-          .catch(() => {
-            preparedRef.current = null;
-          })
-          .finally(() => {
-            buildingRef.current = false;
-          });
+      return;
+    }
+    buildXlsxAttachment(filtered)
+      .then((prepared) => {
+        if (!cancelled) preparedRef.current = { ...prepared, rangeKey };
+      })
+      .catch(() => {
+        if (!cancelled) preparedRef.current = null;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [panelOpen, from, to, rangeInvalid]);
+
+  function togglePanel() {
+    const opening = !panelOpen;
+    setPanelOpen(opening);
+    if (opening) {
+      preparedRef.current = null;
+      const entries = loadEntries();
+      if (entries.length === 0) {
+        const today = todayIso();
+        setFrom(today);
+        setTo(today);
+      } else {
+        const dates = entries.map((e) => e.date).sort();
+        setFrom(dates[0]);
+        setTo(dates[dates.length - 1]);
       }
     }
   }
 
+  function applyPreset(monthsBack: 0 | 1) {
+    const now = new Date();
+    const ref = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
+    const range = monthRange(ref);
+    setFrom(range.from);
+    setTo(range.to);
+  }
+
+  function filteredEntries(): ReturnType<typeof loadEntries> | null {
+    const filtered = filterByRange(loadEntries(), from, to);
+    if (filtered.length === 0) {
+      alert('Aucune heure supp dans cette période.');
+      return null;
+    }
+    return filtered;
+  }
+
   async function handleExportFile() {
-    setMenuOpen(false);
+    const filtered = filteredEntries();
+    if (!filtered) return;
+    setPanelOpen(false);
     try {
-      await exportXlsxFile();
+      await exportXlsxFile(filtered);
     } catch (err) {
       alert(`Export échoué : ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
   async function handleExportMail() {
-    setMenuOpen(false);
+    const filtered = filteredEntries();
+    if (!filtered) return;
+    setPanelOpen(false);
 
     if (Capacitor.isNativePlatform()) {
-      // Android APK: exportXlsxMail routes to the native EmailComposer
-      // Intent, which needs no transient user activation.
+      // Android APK: native EmailComposer Intent, no activation constraint.
       try {
-        await exportXlsxMail();
+        await exportXlsxMail(filtered);
       } catch (err) {
         alert(`Export échoué : ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -86,11 +128,12 @@ export default function ExportImport({ onImported }: Props) {
     }
 
     const prepared = preparedRef.current;
+    const rangeKey = `${from}..${to}`;
 
-    if (prepared) {
+    if (prepared && prepared.rangeKey === rangeKey) {
       preparedRef.current = null;
-      // Synchronous path: no await before share(), so Chrome Android keeps the
-      // user activation from this click and doesn't throw NotAllowedError.
+      // Synchronous share: no await before navigator.share() so the click's
+      // user activation survives on Chrome.
       const attempt = shareXlsxAttachmentSync(prepared.blob, prepared.filename);
       if (attempt.shared && attempt.promise) {
         try {
@@ -104,10 +147,8 @@ export default function ExportImport({ onImported }: Props) {
       return;
     }
 
-    // Blob not ready yet (user was very fast, or generation failed). Build it now
-    // and use the download + mailto fallback — the await would break sharing anyway.
     try {
-      const built = await buildXlsxAttachment();
+      const built = await buildXlsxAttachment(filtered);
       fallbackMailWithDownload(built.blob, built.filename);
     } catch (err) {
       alert(`Export échoué : ${err instanceof Error ? err.message : String(err)}`);
@@ -134,38 +175,81 @@ export default function ExportImport({ onImported }: Props) {
 
   return (
     <div className="flex gap-2 items-start">
-      <div className="relative" ref={menuRef}>
+      <div className="relative" ref={panelRef}>
         <button
           type="button"
-          onClick={toggleMenu}
+          onClick={togglePanel}
           className="px-3 py-1.5 text-xs bg-surface2 text-slate-100 rounded-full flex items-center gap-1"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
+          aria-haspopup="dialog"
+          aria-expanded={panelOpen}
         >
           Exporter
           <span className="text-[10px]" aria-hidden>▾</span>
         </button>
-        {menuOpen && (
+        {panelOpen && (
           <div
-            role="menu"
-            className="absolute right-0 mt-1 w-32 bg-surface border border-surface2 rounded-lg shadow-lg overflow-hidden z-10"
+            role="dialog"
+            aria-label="Options d'export"
+            className="absolute right-0 mt-1 w-64 bg-surface border border-surface2 rounded-xl shadow-lg p-3 z-10 space-y-3"
           >
-            <button
-              type="button"
-              role="menuitem"
-              onClick={handleExportFile}
-              className="w-full text-left px-3 py-2 text-sm text-slate-100 hover:bg-surface2 active:bg-surface2"
-            >
-              Fichier
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={handleExportMail}
-              className="w-full text-left px-3 py-2 text-sm text-slate-100 hover:bg-surface2 active:bg-surface2"
-            >
-              Mail
-            </button>
+            <p className="text-xs uppercase tracking-wide text-muted">Période</p>
+            <label className="block">
+              <span className="text-xs text-muted">Du</span>
+              <input
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="mt-0.5 w-full bg-bg border border-surface2 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-accent"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs text-muted">Au</span>
+              <input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="mt-0.5 w-full bg-bg border border-surface2 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-accent"
+              />
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => applyPreset(0)}
+                className="flex-1 px-2 py-1.5 text-xs bg-surface2 text-slate-100 rounded-lg"
+              >
+                Ce mois-ci
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset(1)}
+                className="flex-1 px-2 py-1.5 text-xs bg-surface2 text-slate-100 rounded-lg"
+              >
+                Mois dernier
+              </button>
+            </div>
+            {rangeInvalid && (
+              <p className="text-xs text-red-300">
+                La date de début doit précéder la date de fin.
+              </p>
+            )}
+            <div className="flex gap-2 pt-1 border-t border-surface2">
+              <button
+                type="button"
+                onClick={handleExportFile}
+                disabled={rangeInvalid}
+                className="flex-1 px-2 py-2 text-sm font-medium bg-accent text-slate-900 rounded-lg disabled:opacity-40"
+              >
+                Fichier
+              </button>
+              <button
+                type="button"
+                onClick={handleExportMail}
+                disabled={rangeInvalid}
+                className="flex-1 px-2 py-2 text-sm font-medium bg-accent2 text-slate-900 rounded-lg disabled:opacity-40"
+              >
+                Mail
+              </button>
+            </div>
           </div>
         )}
       </div>
