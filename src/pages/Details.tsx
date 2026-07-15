@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { deleteEntry, loadEntries } from '../storage';
 import {
   formatDuration,
@@ -10,6 +11,7 @@ import {
 import EntryCard from '../components/EntryCard';
 
 export default function Details() {
+  const navigate = useNavigate();
   const [tick, setTick] = useState(0);
   const entries = loadEntries();
   const groups = groupByMonth(entries);
@@ -65,6 +67,7 @@ export default function Details() {
                       key={e.id}
                       entry={e}
                       showRatio
+                      onEdit={(id) => navigate(`/edit/${id}`)}
                       onDelete={handleDelete}
                     />
                   ))}

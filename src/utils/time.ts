@@ -57,6 +57,15 @@ export function filterThisWeek(entries: Entry[], now = new Date()): Entry[] {
   });
 }
 
+export function addMinutesToHm(
+  hours: number,
+  minutes: number,
+  delta: number,
+): { hours: number; minutes: number } {
+  const total = Math.min(Math.max(hours * 60 + minutes + delta, 0), 23 * 60 + 59);
+  return { hours: Math.floor(total / 60), minutes: total % 60 };
+}
+
 export function monthRange(d: Date): { from: string; to: string } {
   const first = new Date(d.getFullYear(), d.getMonth(), 1);
   const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);

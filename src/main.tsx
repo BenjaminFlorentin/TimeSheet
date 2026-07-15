@@ -15,6 +15,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/" element={<Summary />} />
           <Route path="/details" element={<Details />} />
           <Route path="/add" element={<AddEntry />} />
+          <Route path="/edit/:id" element={<AddEntry />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

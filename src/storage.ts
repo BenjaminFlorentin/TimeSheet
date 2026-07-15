@@ -1,7 +1,9 @@
 import { Capacitor } from '@capacitor/core';
+import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { EmailComposer } from 'capacitor-email-composer';
 import writeXlsxFile from 'write-excel-file/browser';
-import type { Entry } from './types';
+import type { Entry, ExportPayload } from './types';
 import { formatRatio, parseIsoDate, ratioOverEight } from './utils/time';
 
 const STORAGE_KEY = 'timesheet.entries';
@@ -30,6 +32,17 @@ export function addEntry(entry: Entry): Entry[] {
 
 export function deleteEntry(id: string): Entry[] {
   const entries = loadEntries().filter((e) => e.id !== id);
+  saveEntries(entries);
+  return entries;
+}
+
+export function updateEntry(
+  id: string,
+  patch: Partial<Omit<Entry, 'id'>>,
+): Entry[] {
+  const entries = loadEntries().map((e) =>
+    e.id === id ? { ...e, ...patch } : e,
+  );
   saveEntries(entries);
   return entries;
 }
@@ -188,6 +201,40 @@ export async function exportXlsxMail(entries?: Entry[]): Promise<void> {
     }
   }
   fallbackMailWithDownload(blob, filename);
+}
+
+export function buildBackupPayload(): ExportPayload {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    entries: loadEntries(),
+  };
+}
+
+export async function exportBackupJson(): Promise<void> {
+  const payload = buildBackupPayload();
+  const json = JSON.stringify(payload, null, 2);
+  const filename = `timesheet-backup-${todayStamp()}.json`;
+
+  if (Capacitor.isNativePlatform()) {
+    // The Capacitor WebView can't handle <a download> blobs; write the file
+    // to the app cache and hand it to the native share sheet so the user can
+    // save it to Files, Drive, etc.
+    const written = await Filesystem.writeFile({
+      path: filename,
+      data: json,
+      directory: Directory.Cache,
+      encoding: Encoding.UTF8,
+    });
+    await Share.share({
+      title: 'Sauvegarde TimeSheet',
+      files: [written.uri],
+    });
+    return;
+  }
+
+  const blob = new Blob([json], { type: 'application/json' });
+  triggerDownload(blob, filename);
 }
 
 export async function importJson(file: File): Promise<Entry[]> {

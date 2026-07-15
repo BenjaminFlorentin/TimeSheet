@@ -1,15 +1,31 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { addEntry } from '../storage';
-import { todayIso } from '../utils/time';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { addEntry, loadEntries, updateEntry } from '../storage';
+import { addMinutesToHm, todayIso } from '../utils/time';
 
 export default function AddEntry() {
   const navigate = useNavigate();
-  const [date, setDate] = useState(todayIso());
-  const [hours, setHours] = useState('');
-  const [minutes, setMinutes] = useState('');
-  const [note, setNote] = useState('');
+  const { id } = useParams<{ id: string }>();
+  const editing = id ? loadEntries().find((e) => e.id === id) : undefined;
+
+  const [date, setDate] = useState(editing?.date ?? todayIso());
+  const [hours, setHours] = useState(editing ? String(editing.hours) : '');
+  const [minutes, setMinutes] = useState(editing ? String(editing.minutes) : '');
+  const [note, setNote] = useState(editing?.note ?? '');
   const [error, setError] = useState<string | null>(null);
+
+  if (id && !editing) {
+    return <Navigate to="/" replace />;
+  }
+
+  function quickAdd(delta: number) {
+    const h = parseInt(hours || '0', 10) || 0;
+    const m = parseInt(minutes || '0', 10) || 0;
+    const next = addMinutesToHm(h, m, delta);
+    setHours(String(next.hours));
+    setMinutes(String(next.minutes));
+    setError(null);
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,20 +39,27 @@ export default function AddEntry() {
       setError('Renseigne au moins une minute.');
       return;
     }
-    addEntry({
-      id: crypto.randomUUID(),
+    const values = {
       date,
       hours: h,
       minutes: m,
       note: note.trim() || undefined,
-    });
-    navigate('/');
+    };
+    if (editing) {
+      updateEntry(editing.id, values);
+      navigate(-1);
+    } else {
+      addEntry({ id: crypto.randomUUID(), ...values });
+      navigate('/');
+    }
   }
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6 pb-6">
       <header className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Nouvelle entrée</h1>
+        <h1 className="text-2xl font-bold">
+          {editing ? "Modifier l'entrée" : 'Nouvelle entrée'}
+        </h1>
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -85,6 +108,34 @@ export default function AddEntry() {
               className="mt-1 w-full bg-surface border border-surface2 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-accent text-2xl"
             />
           </label>
+        </div>
+
+        <div className="flex gap-2">
+          {[
+            { label: '+15min', delta: 15 },
+            { label: '+30min', delta: 30 },
+            { label: '+1h', delta: 60 },
+          ].map(({ label, delta }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => quickAdd(delta)}
+              className="flex-1 px-2 py-2 text-sm bg-surface2 text-slate-100 rounded-lg active:scale-95 transition"
+            >
+              {label}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              setHours('');
+              setMinutes('');
+            }}
+            className="px-3 py-2 text-sm text-muted bg-surface rounded-lg border border-surface2"
+            aria-label="Réinitialiser la durée"
+          >
+            ↺
+          </button>
         </div>
 
         <label className="block">

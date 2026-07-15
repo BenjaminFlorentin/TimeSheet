@@ -10,10 +10,16 @@ import {
 type Props = {
   entry: Entry;
   onDelete?: (id: string) => void;
+  onEdit?: (id: string) => void;
   showRatio?: boolean;
 };
 
-export default function EntryCard({ entry, onDelete, showRatio = false }: Props) {
+export default function EntryCard({
+  entry,
+  onDelete,
+  onEdit,
+  showRatio = false,
+}: Props) {
   const duration = formatDuration(entryMinutes(entry));
   const ratio = showRatio ? formatRatio(ratioOverEight(entry)) : null;
   return (
@@ -31,16 +37,28 @@ export default function EntryCard({ entry, onDelete, showRatio = false }: Props)
             {ratio}
           </span>
         )}
-        {onDelete && (
-          <button
-            type="button"
-            onClick={() => onDelete(entry.id)}
-            className="text-muted hover:text-red-400 text-lg"
-            aria-label="Supprimer"
-          >
-            🗑
-          </button>
-        )}
+        <div className="flex gap-2">
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(entry.id)}
+              className="text-muted hover:text-accent text-lg"
+              aria-label="Modifier"
+            >
+              ✏️
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(entry.id)}
+              className="text-muted hover:text-red-400 text-lg"
+              aria-label="Supprimer"
+            >
+              🗑
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

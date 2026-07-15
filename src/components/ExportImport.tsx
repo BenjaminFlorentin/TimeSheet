@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import {
   buildXlsxAttachment,
+  exportBackupJson,
   exportXlsxFile,
   exportXlsxMail,
   fallbackMailWithDownload,
@@ -155,6 +156,16 @@ export default function ExportImport({ onImported }: Props) {
     }
   }
 
+  async function handleBackup() {
+    setPanelOpen(false);
+    try {
+      await exportBackupJson();
+    } catch (err) {
+      if (err instanceof Error && /cancel/i.test(err.message)) return;
+      alert(`Sauvegarde échouée : ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -250,6 +261,13 @@ export default function ExportImport({ onImported }: Props) {
                 Mail
               </button>
             </div>
+            <button
+              type="button"
+              onClick={handleBackup}
+              className="w-full px-2 py-1.5 text-xs text-muted bg-bg border border-surface2 rounded-lg"
+            >
+              Sauvegarde complète (JSON)
+            </button>
           </div>
         )}
       </div>

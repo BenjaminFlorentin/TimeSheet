@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Entry } from '../types';
 import {
+  addMinutesToHm,
   entryMinutes,
   filterByRange,
   filterThisMonth,
@@ -86,6 +87,19 @@ describe('sorting and grouping', () => {
     expect(groups).toHaveLength(2);
     expect(groups[0].entries).toHaveLength(2);
     expect(groups[1].entries).toHaveLength(1);
+  });
+});
+
+describe('addMinutesToHm', () => {
+  it('adds minutes and carries into hours', () => {
+    expect(addMinutesToHm(0, 45, 30)).toEqual({ hours: 1, minutes: 15 });
+    expect(addMinutesToHm(1, 0, 60)).toEqual({ hours: 2, minutes: 0 });
+    expect(addMinutesToHm(0, 0, 15)).toEqual({ hours: 0, minutes: 15 });
+  });
+
+  it('clamps at 23h59 and never goes negative', () => {
+    expect(addMinutesToHm(23, 50, 60)).toEqual({ hours: 23, minutes: 59 });
+    expect(addMinutesToHm(0, 5, -30)).toEqual({ hours: 0, minutes: 0 });
   });
 });
 
