@@ -26,10 +26,15 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build:native
+        env:
+          APP_VERSION: ${{ github.sha }}
       - run: npx cap sync android
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug
+        env:
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
+          ANDROID_VERSION_NAME: ${{ github.sha }}
       - uses: actions/upload-artifact@v4
         with:
           name: TimeSheet-debug-apk
@@ -42,8 +47,10 @@ jobs:
         with:
           tag_name: apk-latest
           name: TimeSheet APK (dernière version)
-          body: >
+          body: |
             APK Android de TimeSheet, rebuild automatiquement à chaque push
             sur main. Télécharger TimeSheet.apk ci-dessous et l'installer
             sur le téléphone (autoriser les sources inconnues).
+
+            version: ${{ github.sha }}
           files: TimeSheet.apk

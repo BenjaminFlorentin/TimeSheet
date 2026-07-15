@@ -11,6 +11,7 @@ import {
 import SummaryCard from '../components/SummaryCard';
 import EntryCard from '../components/EntryCard';
 import ExportImport from '../components/ExportImport';
+import UpdateBanner from '../components/UpdateBanner';
 
 export default function Summary() {
   const [tick, setTick] = useState(0);
@@ -21,10 +22,12 @@ export default function Summary() {
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6 pb-6">
-      <header className="flex items-center justify-between mb-6">
+      <header className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">TimeSheet</h1>
         <ExportImport onImported={() => setTick((t) => t + 1)} />
       </header>
+
+      <UpdateBanner />
 
       <div className="space-y-4">
         <SummaryCard

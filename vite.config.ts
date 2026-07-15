@@ -7,6 +7,9 @@ const base = isCapacitor ? '/' : '/TimeSheet/';
 
 export default defineConfig({
   base,
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.APP_VERSION ?? 'dev'),
+  },
   plugins: [
     react(),
     VitePWA({
