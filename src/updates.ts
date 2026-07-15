@@ -1,4 +1,6 @@
 import { Browser } from '@capacitor/browser';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { FileOpener } from '@capacitor-community/file-opener';
 
 export const CURRENT_VERSION: string =
   typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -42,8 +44,38 @@ export async function checkForUpdate(): Promise<UpdateCheck> {
   }
 }
 
-export async function openUpdate(apkUrl: string): Promise<void> {
-  // Chrome Custom Tab: unlike the Capacitor WebView, it knows how to
-  // download an APK and hand it to the package installer.
-  await Browser.open({ url: apkUrl });
+export async function openUpdate(
+  apkUrl: string,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
+  // Download natively (no Chrome — its Custom Tab APK downloads can hang at
+  // 100%) then hand the file straight to the Android package installer.
+  try {
+    let listener: { remove: () => Promise<void> } | undefined;
+    if (onProgress) {
+      listener = await Filesystem.addListener('progress', (p) => {
+        if (p.contentLength > 0) {
+          onProgress(Math.round((p.bytes / p.contentLength) * 100));
+        }
+      });
+    }
+    try {
+      const result = await Filesystem.downloadFile({
+        url: apkUrl,
+        path: 'TimeSheet-update.apk',
+        directory: Directory.Cache,
+        progress: Boolean(onProgress),
+      });
+      if (!result.path) throw new Error('download returned no path');
+      await FileOpener.open({
+        filePath: result.path,
+        contentType: 'application/vnd.android.package-archive',
+      });
+    } finally {
+      await listener?.remove();
+    }
+  } catch {
+    // Safety net: previous behaviour (system browser download).
+    await Browser.open({ url: apkUrl });
+  }
 }

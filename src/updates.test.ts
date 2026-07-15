@@ -1,10 +1,32 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const browserOpen = vi.fn().mockResolvedValue(undefined);
+const downloadFile = vi.fn();
+const fileOpen = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('@capacitor/browser', () => ({
-  Browser: { open: vi.fn().mockResolvedValue(undefined) },
+  Browser: { open: (o: unknown) => browserOpen(o) },
 }));
 
-import { checkForUpdate, parseReleaseVersion } from './updates';
+vi.mock('@capacitor/filesystem', () => ({
+  Directory: { Cache: 'CACHE' },
+  Filesystem: {
+    downloadFile: (o: unknown) => downloadFile(o),
+    addListener: vi.fn().mockResolvedValue({ remove: vi.fn().mockResolvedValue(undefined) }),
+  },
+}));
+
+vi.mock('@capacitor-community/file-opener', () => ({
+  FileOpener: { open: (o: unknown) => fileOpen(o) },
+}));
+
+import { checkForUpdate, openUpdate, parseReleaseVersion } from './updates';
+
+beforeEach(() => {
+  browserOpen.mockClear();
+  downloadFile.mockReset();
+  fileOpen.mockClear();
+});
 
 function mockRelease(body: string, withApk = true) {
   return {
@@ -83,5 +105,38 @@ describe('checkForUpdate', () => {
       vi.fn().mockResolvedValue({ ok: false } as Response),
     );
     await expect(checkForUpdate()).resolves.toEqual({ available: false });
+  });
+});
+
+describe('openUpdate (native download + installer)', () => {
+  const APK_URL =
+    'https://github.com/BenjaminFlorentin/TimeSheet/releases/download/apk-latest/TimeSheet.apk';
+
+  it('downloads the APK to cache then opens the package installer', async () => {
+    downloadFile.mockResolvedValue({ path: '/cache/TimeSheet-update.apk' });
+
+    await openUpdate(APK_URL);
+
+    expect(downloadFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: APK_URL,
+        path: 'TimeSheet-update.apk',
+        directory: 'CACHE',
+      }),
+    );
+    expect(fileOpen).toHaveBeenCalledWith({
+      filePath: '/cache/TimeSheet-update.apk',
+      contentType: 'application/vnd.android.package-archive',
+    });
+    expect(browserOpen).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the browser when the native download fails', async () => {
+    downloadFile.mockRejectedValue(new Error('network'));
+
+    await openUpdate(APK_URL);
+
+    expect(fileOpen).not.toHaveBeenCalled();
+    expect(browserOpen).toHaveBeenCalledWith({ url: APK_URL });
   });
 });

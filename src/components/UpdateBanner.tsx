@@ -7,6 +7,7 @@ const SHORT_VERSION = CURRENT_VERSION.slice(0, 7);
 export default function UpdateBanner() {
   const [apkUrl, setApkUrl] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [downloadPct, setDownloadPct] = useState<number | null>(null);
 
   const isNative = Capacitor.isNativePlatform();
 
@@ -64,10 +65,26 @@ export default function UpdateBanner() {
           </div>
           <button
             type="button"
-            onClick={() => openUpdate(apkUrl)}
-            className="px-3 py-2 text-sm font-medium bg-accent text-slate-900 rounded-lg shrink-0"
+            disabled={downloadPct !== null}
+            onClick={async () => {
+              setDownloadPct(0);
+              try {
+                await openUpdate(apkUrl, (pct) => setDownloadPct(pct));
+              } catch (err) {
+                alert(
+                  `Mise à jour échouée : ${err instanceof Error ? err.message : String(err)}`,
+                );
+              } finally {
+                setDownloadPct(null);
+              }
+            }}
+            className="px-3 py-2 text-sm font-medium bg-accent text-slate-900 rounded-lg shrink-0 disabled:opacity-60"
           >
-            Télécharger
+            {downloadPct === null
+              ? 'Télécharger'
+              : downloadPct < 100
+                ? `${downloadPct} %`
+                : 'Ouverture…'}
           </button>
         </div>
       )}
