@@ -11,47 +11,51 @@ import {
   totalMinutes,
 } from '../utils/time';
 import EntryCard from '../components/EntryCard';
+import { useI18n } from '../i18n';
 
 export default function Details() {
+  const { t, locale } = useI18n();
   const navigate = useNavigate();
   const [tick, setTick] = useState(0);
   const entries = loadEntries();
-  const groups = groupByMonth(entries);
+  const groups = groupByMonth(entries, locale);
   const overtime = overtimeOnly(entries);
   const totalRatio = overtime.reduce((sum, e) => sum + ratioOverEight(e), 0);
   const grandTotal = totalMinutes(overtime);
   const oncallTotal = oncallOnly(entries).length;
 
   function handleDelete(id: string) {
-    if (!confirm('Supprimer cette entrée ?')) return;
+    if (!confirm(t('details.deleteConfirm'))) return;
     deleteEntry(id);
     setTick((t) => t + 1);
   }
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6 pb-6" key={tick}>
-      <h1 className="text-2xl font-bold font-magic mb-6">Détails 📜</h1>
+      <h1 className="text-2xl font-bold font-magic mb-6">{t('details.title')}</h1>
 
       <div className="bg-surface rounded-2xl p-4 border border-surface2 mb-6">
-        <p className="text-sm text-muted uppercase tracking-wide">🧙 Total cumulé</p>
+        <p className="text-sm text-muted uppercase tracking-wide">
+          {t('details.total')}
+        </p>
         <div className="flex items-baseline justify-between mt-2">
           <p className="text-2xl font-semibold">{formatDuration(grandTotal)}</p>
           <p className="text-lg font-medium text-accent2">
             {formatRatio(totalRatio)}
           </p>
         </div>
-        <p className="text-xs text-muted mt-1">
-          Chaque heure supp est divisée par 8 (1 journée = 1)
-        </p>
+        <p className="text-xs text-muted mt-1">{t('details.totalHelp')}</p>
         {oncallTotal > 0 && (
           <p className="text-sm mt-2 pt-2 border-t border-surface2">
-            🛡️ {oncallTotal} jour{oncallTotal > 1 ? 's' : ''} d'astreinte
+            {t(oncallTotal > 1 ? 'details.oncallTotalPlural' : 'details.oncallTotal', {
+              n: oncallTotal,
+            })}
           </p>
         )}
       </div>
 
       {groups.length === 0 ? (
-        <p className="text-muted text-sm">Aucune entrée pour le moment.</p>
+        <p className="text-muted text-sm">{t('details.empty')}</p>
       ) : (
         <div className="space-y-6">
           {groups.map((group) => {

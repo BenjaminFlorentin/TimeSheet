@@ -37,6 +37,7 @@ vi.mock('@capacitor/filesystem', () => ({
 }));
 
 import {
+  addEntries,
   buildBackupPayload,
   buildOnCallRows,
   buildRows,
@@ -63,6 +64,15 @@ beforeEach(() => {
   shareMock.mockClear();
   writeFileMock.mockClear();
   nativePlatform = false;
+});
+
+describe('addEntries', () => {
+  it('persists several entries in one write (on-call period expansion)', () => {
+    addEntries([oncall('2026-07-01'), oncall('2026-07-02'), oncall('2026-07-03')]);
+    const stored = loadEntries();
+    expect(stored).toHaveLength(3);
+    expect(stored.every((e) => e.kind === 'oncall')).toBe(true);
+  });
 });
 
 describe('updateEntry', () => {

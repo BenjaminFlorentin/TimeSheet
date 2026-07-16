@@ -31,7 +31,11 @@ export function saveEntries(entries: Entry[]): void {
 }
 
 export function addEntry(entry: Entry): Entry[] {
-  const entries = [...loadEntries(), entry];
+  return addEntries([entry]);
+}
+
+export function addEntries(newEntries: Entry[]): Entry[] {
+  const entries = [...loadEntries(), ...newEntries];
   saveEntries(entries);
   return entries;
 }

@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { Entry } from '../types';
 import {
   addMinutesToHm,
+  datesInRange,
   entryMinutes,
   filterByRange,
+  formatLongDate,
+  formatMonthKey,
   isOnCall,
   oncallOnly,
   overtimeOnly,
@@ -90,6 +93,39 @@ describe('sorting and grouping', () => {
     expect(groups).toHaveLength(2);
     expect(groups[0].entries).toHaveLength(2);
     expect(groups[1].entries).toHaveLength(1);
+  });
+});
+
+describe('datesInRange', () => {
+  it('lists every day of the period, inclusive', () => {
+    expect(datesInRange('2026-07-01', '2026-07-03')).toEqual([
+      '2026-07-01',
+      '2026-07-02',
+      '2026-07-03',
+    ]);
+  });
+
+  it('crosses month boundaries', () => {
+    expect(datesInRange('2026-06-29', '2026-07-02')).toEqual([
+      '2026-06-29',
+      '2026-06-30',
+      '2026-07-01',
+      '2026-07-02',
+    ]);
+  });
+
+  it('handles single-day and inverted ranges', () => {
+    expect(datesInRange('2026-07-10', '2026-07-10')).toEqual(['2026-07-10']);
+    expect(datesInRange('2026-07-10', '2026-07-01')).toEqual([]);
+  });
+});
+
+describe('localized date formatting', () => {
+  it('follows the requested locale', () => {
+    expect(formatLongDate('2026-07-13', 'fr-FR')).toBe('lundi 13 juillet');
+    expect(formatLongDate('2026-07-13', 'en-US')).toBe('Monday, July 13');
+    expect(formatMonthKey('2026-07-13', 'fr-FR')).toBe('juillet 2026');
+    expect(formatMonthKey('2026-07-13', 'en-US')).toBe('July 2026');
   });
 });
 

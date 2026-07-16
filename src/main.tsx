@@ -5,12 +5,14 @@ import App from './App';
 import Summary from './pages/Summary';
 import Details from './pages/Details';
 import AddEntry from './pages/AddEntry';
+import { LangProvider } from './i18n';
 import '@fontsource/cinzel/400.css';
 import '@fontsource/cinzel/700.css';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
+    <LangProvider>
     <HashRouter>
       <Routes>
         <Route element={<App />}>
@@ -22,5 +24,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         </Route>
       </Routes>
     </HashRouter>
+    </LangProvider>
   </React.StrictMode>,
 );

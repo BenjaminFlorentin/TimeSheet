@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { addEntry, loadEntries, updateEntry } from '../storage';
-import { addMinutesToHm, isOnCall, todayIso } from '../utils/time';
+import { addEntries, loadEntries, updateEntry } from '../storage';
+import { addMinutesToHm, datesInRange, isOnCall, todayIso } from '../utils/time';
+import { useI18n } from '../i18n';
 import type { EntryKind } from '../types';
 
+const MAX_ONCALL_PERIOD_DAYS = 92;
+
 export default function AddEntry() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const editing = id ? loadEntries().find((e) => e.id === id) : undefined;
@@ -13,6 +17,7 @@ export default function AddEntry() {
     editing && isOnCall(editing) ? 'oncall' : 'overtime',
   );
   const [date, setDate] = useState(editing?.date ?? todayIso());
+  const [dateTo, setDateTo] = useState(editing?.date ?? todayIso());
   const [hours, setHours] = useState(editing ? String(editing.hours) : '');
   const [minutes, setMinutes] = useState(editing ? String(editing.minutes) : '');
   const [note, setNote] = useState(editing?.note ?? '');
@@ -23,6 +28,8 @@ export default function AddEntry() {
   }
 
   const oncall = kind === 'oncall';
+  // A period only makes sense when creating; editing targets one specific day.
+  const periodMode = oncall && !editing;
 
   function quickAdd(delta: number) {
     const h = parseInt(hours || '0', 10) || 0;
@@ -41,37 +48,58 @@ export default function AddEntry() {
       h = parseInt(hours || '0', 10);
       m = parseInt(minutes || '0', 10);
       if (Number.isNaN(h) || Number.isNaN(m) || h < 0 || m < 0 || m > 59 || h > 23) {
-        setError('Valeurs invalides. Heures 0–23, minutes 0–59.');
+        setError(t('form.errInvalid'));
         return;
       }
       if (h === 0 && m === 0) {
-        setError('Renseigne au moins une minute.');
+        setError(t('form.errEmpty'));
         return;
       }
     }
-    const values = {
-      date,
-      hours: h,
-      minutes: m,
-      kind,
-      note: note.trim() || undefined,
-    };
+
+    const common = { kind, note: note.trim() || undefined };
+
     if (editing) {
-      updateEntry(editing.id, values);
+      updateEntry(editing.id, { ...common, date, hours: h, minutes: m });
       navigate(-1);
-    } else {
-      addEntry({ id: crypto.randomUUID(), ...values });
-      navigate('/');
+      return;
     }
+
+    if (periodMode) {
+      const days = datesInRange(date, dateTo);
+      if (days.length === 0) {
+        setError(t('form.errRange'));
+        return;
+      }
+      if (days.length > MAX_ONCALL_PERIOD_DAYS) {
+        setError(t('form.errRangeTooLong'));
+        return;
+      }
+      addEntries(
+        days.map((day) => ({
+          id: crypto.randomUUID(),
+          date: day,
+          hours: 0,
+          minutes: 0,
+          ...common,
+        })),
+      );
+    } else {
+      addEntries([{ id: crypto.randomUUID(), date, hours: h, minutes: m, ...common }]);
+    }
+    navigate('/');
   }
 
   const title = editing
     ? oncall
-      ? "Modifier l'astreinte ✨"
-      : "Modifier l'entrée ✨"
+      ? t('form.editOncall')
+      : t('form.editEntry')
     : oncall
-      ? 'Nouvelle astreinte 🛡️'
-      : 'Nouvelle entrée 🪄';
+      ? t('form.newOncall')
+      : t('form.newEntry');
+
+  const dateInputClass =
+    'mt-1 w-full bg-surface border border-surface2 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-accent';
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6 pb-6">
@@ -82,124 +110,159 @@ export default function AddEntry() {
           onClick={() => navigate(-1)}
           className="text-muted text-sm"
         >
-          Annuler
+          {t('form.cancel')}
         </button>
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="flex gap-2" role="radiogroup" aria-label="Type d'entrée">
-          {(
-            [
-              { value: 'overtime', label: '⚡ Heure supp' },
-              { value: 'oncall', label: '🛡️ Astreinte' },
-            ] as const
-          ).map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={kind === value}
-              onClick={() => {
-                setKind(value);
-                setError(null);
-              }}
-              className={`flex-1 px-2 py-2 text-sm rounded-lg border transition ${
-                kind === value
-                  ? 'bg-accent text-slate-900 border-accent font-medium'
-                  : 'bg-surface text-slate-100 border-surface2'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {!editing && (
+          <div className="flex gap-2" role="radiogroup" aria-label="Type">
+            {(
+              [
+                { value: 'overtime', labelKey: 'form.kindOvertime' },
+                { value: 'oncall', labelKey: 'form.kindOncall' },
+              ] as const
+            ).map(({ value, labelKey }) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={kind === value}
+                onClick={() => {
+                  setKind(value);
+                  setError(null);
+                }}
+                className={`flex-1 px-2 py-2 text-sm rounded-lg border transition ${
+                  kind === value
+                    ? 'bg-accent text-slate-900 border-accent font-medium'
+                    : 'bg-surface text-slate-100 border-surface2'
+                }`}
+              >
+                {t(labelKey)}
+              </button>
+            ))}
+          </div>
+        )}
 
-        <label className="block">
-          <span className="text-sm text-muted">Date</span>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="mt-1 w-full bg-surface border border-surface2 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-accent"
-            required
-          />
-        </label>
+        {periodMode ? (
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-sm text-muted">{t('form.from')}</span>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => {
+                  setDate(e.target.value);
+                  if (e.target.value > dateTo) setDateTo(e.target.value);
+                  setError(null);
+                }}
+                className={dateInputClass}
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm text-muted">{t('form.to')}</span>
+              <input
+                type="date"
+                value={dateTo}
+                min={date}
+                onChange={(e) => {
+                  setDateTo(e.target.value);
+                  setError(null);
+                }}
+                className={dateInputClass}
+                required
+              />
+            </label>
+          </div>
+        ) : (
+          <label className="block">
+            <span className="text-sm text-muted">{t('form.date')}</span>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={dateInputClass}
+              required
+            />
+          </label>
+        )}
 
         {!oncall && (
-        <>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="text-sm text-muted">Heures</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={23}
-              value={hours}
-              onChange={(e) => setHours(e.target.value)}
-              placeholder="0"
-              className="mt-1 w-full bg-surface border border-surface2 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-accent text-2xl"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm text-muted">Minutes</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={59}
-              value={minutes}
-              onChange={(e) => setMinutes(e.target.value)}
-              placeholder="0"
-              className="mt-1 w-full bg-surface border border-surface2 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-accent text-2xl"
-            />
-          </label>
-        </div>
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-sm text-muted">{t('form.hours')}</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={23}
+                  value={hours}
+                  onChange={(e) => setHours(e.target.value)}
+                  placeholder="0"
+                  className={`${dateInputClass} text-2xl`}
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm text-muted">{t('form.minutes')}</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={59}
+                  value={minutes}
+                  onChange={(e) => setMinutes(e.target.value)}
+                  placeholder="0"
+                  className={`${dateInputClass} text-2xl`}
+                />
+              </label>
+            </div>
 
-        <div className="flex gap-2">
-          {[
-            { label: '+15min', delta: 15 },
-            { label: '+30min', delta: 30 },
-            { label: '+1h', delta: 60 },
-          ].map(({ label, delta }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => quickAdd(delta)}
-              className="flex-1 px-2 py-2 text-sm bg-surface2 text-slate-100 rounded-lg active:scale-95 transition"
-            >
-              {label}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              setHours('');
-              setMinutes('');
-            }}
-            className="px-3 py-2 text-sm text-muted bg-surface rounded-lg border border-surface2"
-            aria-label="Réinitialiser la durée"
-          >
-            ↺
-          </button>
-        </div>
-        </>
+            <div className="flex gap-2">
+              {[
+                { label: '+15min', delta: 15 },
+                { label: '+30min', delta: 30 },
+                { label: '+1h', delta: 60 },
+              ].map(({ label, delta }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => quickAdd(delta)}
+                  className="flex-1 px-2 py-2 text-sm bg-surface2 text-slate-100 rounded-lg active:scale-95 transition"
+                >
+                  {label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setHours('');
+                  setMinutes('');
+                }}
+                className="px-3 py-2 text-sm text-muted bg-surface rounded-lg border border-surface2"
+                aria-label={t('form.resetLabel')}
+              >
+                ↺
+              </button>
+            </div>
+          </>
         )}
 
         {oncall && (
           <p className="text-sm text-muted bg-surface border border-surface2 rounded-lg px-3 py-2">
-            🛡️ Un jour d'astreinte compte pour 1 jour — pas de durée à saisir.
+            {t('form.oncallHint')}
           </p>
         )}
 
         <label className="block">
-          <span className="text-sm text-muted">Note (optionnel)</span>
+          <span className="text-sm text-muted">{t('form.note')}</span>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            className="mt-1 w-full bg-surface border border-surface2 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-accent resize-none"
-            placeholder="Contexte, projet, client…"
+            className={`${dateInputClass} resize-none`}
+            placeholder={t('form.notePlaceholder')}
           />
         </label>
 
@@ -213,7 +276,7 @@ export default function AddEntry() {
           type="submit"
           className="w-full bg-accent text-slate-900 font-semibold rounded-lg py-3 active:scale-[0.98] transition"
         >
-          Enregistrer
+          {t('form.save')}
         </button>
       </form>
     </div>

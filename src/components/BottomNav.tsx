@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-
-const items = [
-  { to: '/', label: 'Résumé', icon: '⚡' },
-  { to: '/details', label: 'Détails', icon: '📜' },
-];
+import { useI18n } from '../i18n';
 
 export default function BottomNav() {
+  const { t } = useI18n();
+  const items = [
+    { to: '/', label: t('nav.summary'), icon: '⚡' },
+    { to: '/details', label: t('nav.details'), icon: '📜' },
+  ];
   return (
     <nav className="fixed bottom-0 inset-x-0 bg-surface border-t border-surface2 safe-bottom">
       <ul className="grid grid-cols-2 max-w-md mx-auto">

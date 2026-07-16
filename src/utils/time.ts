@@ -90,6 +90,20 @@ export function filterByRange(entries: Entry[], from: string, to: string): Entry
   return entries.filter((e) => e.date >= from && e.date <= to);
 }
 
+export function datesInRange(from: string, to: string): string[] {
+  if (!from || !to || from > to) return [];
+  const dates: string[] = [];
+  const d = parseIsoDate(from);
+  const end = parseIsoDate(to);
+  while (d <= end) {
+    dates.push(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+    );
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
+}
+
 export function filterThisMonth(entries: Entry[], now = new Date()): Entry[] {
   const y = now.getFullYear();
   const m = now.getMonth();
@@ -99,25 +113,30 @@ export function filterThisMonth(entries: Entry[], now = new Date()): Entry[] {
   });
 }
 
-export function formatLongDate(iso: string): string {
+export type DateLocale = 'fr-FR' | 'en-US';
+
+export function formatLongDate(iso: string, locale: DateLocale = 'fr-FR'): string {
   const d = parseIsoDate(iso);
-  return d.toLocaleDateString('fr-FR', {
+  return d.toLocaleDateString(locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
   });
 }
 
-export function formatMonthKey(iso: string): string {
+export function formatMonthKey(iso: string, locale: DateLocale = 'fr-FR'): string {
   const d = parseIsoDate(iso);
-  return d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  return d.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
 }
 
 export function sortByDateDesc(entries: Entry[]): Entry[] {
   return [...entries].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
-export function groupByMonth(entries: Entry[]): Array<{ key: string; entries: Entry[] }> {
+export function groupByMonth(
+  entries: Entry[],
+  locale: DateLocale = 'fr-FR',
+): Array<{ key: string; entries: Entry[] }> {
   const sorted = sortByDateDesc(entries);
   const groups = new Map<string, Entry[]>();
   for (const e of sorted) {
@@ -127,7 +146,7 @@ export function groupByMonth(entries: Entry[]): Array<{ key: string; entries: En
     groups.get(key)!.push(e);
   }
   return Array.from(groups.entries()).map(([, arr]) => ({
-    key: formatMonthKey(arr[0].date),
+    key: formatMonthKey(arr[0].date, locale),
     entries: arr,
   }));
 }

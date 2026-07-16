@@ -11,6 +11,7 @@ import {
   shareXlsxAttachmentSync,
 } from '../storage';
 import { filterByRange, monthRange, todayIso } from '../utils/time';
+import { useI18n } from '../i18n';
 
 type Props = {
   onImported: () => void;
@@ -19,6 +20,7 @@ type Props = {
 type PreparedAttachment = { blob: Blob; filename: string; rangeKey: string };
 
 export default function ExportImport({ onImported }: Props) {
+  const { t } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const preparedRef = useRef<PreparedAttachment | null>(null);
@@ -96,7 +98,7 @@ export default function ExportImport({ onImported }: Props) {
   function filteredEntries(): ReturnType<typeof loadEntries> | null {
     const filtered = filterByRange(loadEntries(), from, to);
     if (filtered.length === 0) {
-      alert('Aucune magie détectée dans cette période 🔮');
+      alert(t('export.emptyRange'));
       return null;
     }
     return filtered;
@@ -109,7 +111,7 @@ export default function ExportImport({ onImported }: Props) {
     try {
       await exportXlsxFile(filtered);
     } catch (err) {
-      alert(`Export échoué : ${err instanceof Error ? err.message : String(err)}`);
+      alert(t('export.failed', { msg: err instanceof Error ? err.message : String(err) }));
     }
   }
 
@@ -123,7 +125,7 @@ export default function ExportImport({ onImported }: Props) {
       try {
         await exportXlsxMail(filtered);
       } catch (err) {
-        alert(`Export échoué : ${err instanceof Error ? err.message : String(err)}`);
+        alert(t('export.failed', { msg: err instanceof Error ? err.message : String(err) }));
       }
       return;
     }
@@ -152,7 +154,7 @@ export default function ExportImport({ onImported }: Props) {
       const built = await buildXlsxAttachment(filtered);
       fallbackMailWithDownload(built.blob, built.filename);
     } catch (err) {
-      alert(`Export échoué : ${err instanceof Error ? err.message : String(err)}`);
+      alert(t('export.failed', { msg: err instanceof Error ? err.message : String(err) }));
     }
   }
 
@@ -162,23 +164,23 @@ export default function ExportImport({ onImported }: Props) {
       await exportBackupJson();
     } catch (err) {
       if (err instanceof Error && /cancel/i.test(err.message)) return;
-      alert(`Sauvegarde échouée : ${err instanceof Error ? err.message : String(err)}`);
+      alert(t('export.backupFailed', { msg: err instanceof Error ? err.message : String(err) }));
     }
   }
 
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!confirm('Importer ce fichier remplacera toutes les entrées actuelles. Continuer ?')) {
+    if (!confirm(t('export.importConfirm'))) {
       e.target.value = '';
       return;
     }
     try {
       await importJson(file);
       onImported();
-      alert('Import réussi ✓');
+      alert(t('export.importOk'));
     } catch (err) {
-      alert(`Import échoué : ${err instanceof Error ? err.message : String(err)}`);
+      alert(t('export.importFailed', { msg: err instanceof Error ? err.message : String(err) }));
     } finally {
       e.target.value = '';
     }
@@ -194,7 +196,7 @@ export default function ExportImport({ onImported }: Props) {
           aria-haspopup="dialog"
           aria-expanded={panelOpen}
         >
-          Exporter
+          {t('export.button')}
           <span className="text-[10px]" aria-hidden>▾</span>
         </button>
         {panelOpen && (
@@ -203,9 +205,9 @@ export default function ExportImport({ onImported }: Props) {
             aria-label="Options d'export"
             className="absolute right-0 mt-1 w-64 bg-surface border border-surface2 rounded-xl shadow-lg p-3 z-10 space-y-3"
           >
-            <p className="text-xs uppercase tracking-wide text-muted">Période</p>
+            <p className="text-xs uppercase tracking-wide text-muted">{t('export.period')}</p>
             <label className="block">
-              <span className="text-xs text-muted">Du</span>
+              <span className="text-xs text-muted">{t('form.from')}</span>
               <input
                 type="date"
                 value={from}
@@ -214,7 +216,7 @@ export default function ExportImport({ onImported }: Props) {
               />
             </label>
             <label className="block">
-              <span className="text-xs text-muted">Au</span>
+              <span className="text-xs text-muted">{t('form.to')}</span>
               <input
                 type="date"
                 value={to}
@@ -228,19 +230,19 @@ export default function ExportImport({ onImported }: Props) {
                 onClick={() => applyPreset(0)}
                 className="flex-1 px-2 py-1.5 text-xs bg-surface2 text-slate-100 rounded-lg"
               >
-                Ce mois-ci
+                {t('export.thisMonth')}
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset(1)}
                 className="flex-1 px-2 py-1.5 text-xs bg-surface2 text-slate-100 rounded-lg"
               >
-                Mois dernier
+                {t('export.lastMonth')}
               </button>
             </div>
             {rangeInvalid && (
               <p className="text-xs text-red-300">
-                La date de début doit précéder la date de fin.
+                {t('export.errRange')}
               </p>
             )}
             <div className="flex gap-2 pt-1 border-t border-surface2">
@@ -250,7 +252,7 @@ export default function ExportImport({ onImported }: Props) {
                 disabled={rangeInvalid}
                 className="flex-1 px-2 py-2 text-sm font-medium bg-accent text-slate-900 rounded-lg disabled:opacity-40"
               >
-                Fichier
+                {t('export.file')}
               </button>
               <button
                 type="button"
@@ -258,7 +260,7 @@ export default function ExportImport({ onImported }: Props) {
                 disabled={rangeInvalid}
                 className="flex-1 px-2 py-2 text-sm font-medium bg-accent2 text-slate-900 rounded-lg disabled:opacity-40"
               >
-                Mail 🦉
+                {t('export.mail')}
               </button>
             </div>
             <button
@@ -266,7 +268,7 @@ export default function ExportImport({ onImported }: Props) {
               onClick={handleBackup}
               className="w-full px-2 py-1.5 text-xs text-muted bg-bg border border-surface2 rounded-lg"
             >
-              Sauvegarde complète (JSON)
+              {t('export.backup')}
             </button>
           </div>
         )}
@@ -277,7 +279,7 @@ export default function ExportImport({ onImported }: Props) {
         onClick={() => fileRef.current?.click()}
         className="px-3 py-1.5 text-xs bg-surface2 text-slate-100 rounded-full"
       >
-        Importer
+        {t('export.import')}
       </button>
       <input
         ref={fileRef}

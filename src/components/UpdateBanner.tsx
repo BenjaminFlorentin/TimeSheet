@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { useI18n } from '../i18n';
 import { checkForUpdate, CURRENT_VERSION, openUpdate } from '../updates';
 
 const SHORT_VERSION = CURRENT_VERSION.slice(0, 7);
 
 export default function UpdateBanner() {
+  const { t, lang, setLang } = useI18n();
   const [apkUrl, setApkUrl] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [downloadPct, setDownloadPct] = useState<number | null>(null);
@@ -40,11 +42,9 @@ export default function UpdateBanner() {
       if (result.available && result.apkUrl) {
         setApkUrl(result.apkUrl);
       } else if (result.latestVersion) {
-        alert(`Application à jour ✓ (version ${SHORT_VERSION})`);
+        alert(t('update.upToDate', { v: SHORT_VERSION }));
       } else {
-        alert(
-          'Vérification impossible — connexion internet indisponible ou GitHub inaccessible.',
-        );
+        alert(t('update.checkFailed'));
       }
     } finally {
       setChecking(false);
@@ -56,12 +56,8 @@ export default function UpdateBanner() {
       {isNative && apkUrl && (
         <div className="bg-accent/10 border border-accent/40 rounded-xl p-3 flex items-center gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium">
-              Un hibou t'apporte une mise à jour 🦉
-            </p>
-            <p className="text-xs text-muted">
-              Télécharge puis ouvre le fichier pour installer.
-            </p>
+            <p className="text-sm font-medium">{t('update.available')}</p>
+            <p className="text-xs text-muted">{t('update.hint')}</p>
           </div>
           <button
             type="button"
@@ -72,7 +68,9 @@ export default function UpdateBanner() {
                 await openUpdate(apkUrl, (pct) => setDownloadPct(pct));
               } catch (err) {
                 alert(
-                  `Mise à jour échouée : ${err instanceof Error ? err.message : String(err)}`,
+                  t('update.failed', {
+                    msg: err instanceof Error ? err.message : String(err),
+                  }),
                 );
               } finally {
                 setDownloadPct(null);
@@ -81,15 +79,15 @@ export default function UpdateBanner() {
             className="px-3 py-2 text-sm font-medium bg-accent text-slate-900 rounded-lg shrink-0 disabled:opacity-60"
           >
             {downloadPct === null
-              ? 'Télécharger'
+              ? t('update.download')
               : downloadPct < 100
                 ? `${downloadPct} %`
-                : 'Ouverture…'}
+                : t('update.opening')}
           </button>
         </div>
       )}
       <div className="flex items-center gap-2 text-xs text-muted">
-        <span>Version {SHORT_VERSION}</span>
+        <span>{t('update.version', { v: SHORT_VERSION })}</span>
         {isNative && (
           <>
             <span aria-hidden>·</span>
@@ -99,10 +97,19 @@ export default function UpdateBanner() {
               disabled={checking}
               className="underline underline-offset-2 disabled:opacity-50"
             >
-              {checking ? 'Vérification…' : 'Vérifier les mises à jour'}
+              {checking ? t('update.checking') : t('update.check')}
             </button>
           </>
         )}
+        <span aria-hidden>·</span>
+        <button
+          type="button"
+          onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
+          className="underline underline-offset-2"
+          aria-label="Changer de langue / Switch language"
+        >
+          🌐 {lang === 'fr' ? 'EN' : 'FR'}
+        </button>
       </div>
     </div>
   );
