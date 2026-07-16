@@ -36,6 +36,12 @@ vi.mock('@capacitor/filesystem', () => ({
   Filesystem: { writeFile: (o: unknown) => writeFileMock(o) },
 }));
 
+const fileOpenMock = vi.fn().mockResolvedValue(undefined);
+
+vi.mock('@capacitor-community/file-opener', () => ({
+  FileOpener: { open: (o: unknown) => fileOpenMock(o) },
+}));
+
 import {
   addEntries,
   buildBackupPayload,
@@ -64,6 +70,8 @@ beforeEach(() => {
   emailOpen.mockClear();
   shareMock.mockClear();
   writeFileMock.mockClear();
+  fileOpenMock.mockClear();
+  fileOpenMock.mockResolvedValue(undefined);
   nativePlatform = false;
 });
 
@@ -140,7 +148,7 @@ describe('backup / restore round-trip', () => {
     expect(loadEntries()).toEqual(entries);
   });
 
-  it('native file export writes a base64 xlsx then opens the share sheet', async () => {
+  it('native file export writes a base64 xlsx then opens it directly', async () => {
     nativePlatform = true;
     saveEntries([entry('2026-07-13', 1, 30)]);
 
@@ -155,6 +163,21 @@ describe('backup / restore round-trip', () => {
     expect(writeArgs.path).toMatch(/^timesheet-\d{4}-\d{2}-\d{2}\.xlsx$/);
     // No encoding option: Filesystem must treat the data as base64 binary.
     expect(writeArgs.encoding).toBeUndefined();
+    expect(fileOpenMock).toHaveBeenCalledWith({
+      filePath: 'file:///cache/backup.json',
+      contentType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    expect(shareMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the share sheet when no app can open the xlsx', async () => {
+    nativePlatform = true;
+    saveEntries([entry('2026-07-13', 1, 30)]);
+    fileOpenMock.mockRejectedValue(new Error('Activity not found'));
+
+    await exportXlsxFile();
+
     expect(shareMock).toHaveBeenCalledWith(
       expect.objectContaining({ files: ['file:///cache/backup.json'] }),
     );

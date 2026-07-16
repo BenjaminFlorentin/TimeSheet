@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { FileOpener } from '@capacitor-community/file-opener';
 import { EmailComposer } from 'capacitor-email-composer';
 import writeXlsxFile from 'write-excel-file/browser';
 import type { Entry, ExportPayload } from './types';
@@ -211,7 +212,13 @@ export async function exportXlsxFile(entries?: Entry[]): Promise<void> {
       data: base64,
       directory: Directory.Cache,
     });
-    await Share.share({ title: filename, files: [written.uri] });
+    try {
+      // Open straight in the user's spreadsheet app.
+      await FileOpener.open({ filePath: written.uri, contentType: XLSX_MIME });
+    } catch {
+      // No app can open an XLSX → fall back to the share sheet.
+      await Share.share({ title: filename, files: [written.uri] });
+    }
     return;
   }
 
