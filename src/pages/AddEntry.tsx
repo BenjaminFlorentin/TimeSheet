@@ -126,6 +126,7 @@ export default function AddEntry() {
         </label>
 
         {!oncall && (
+        <>
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="text-sm text-muted">Heures</span>
@@ -182,6 +183,7 @@ export default function AddEntry() {
             ↺
           </button>
         </div>
+        </>
         )}
 
         {oncall && (
