@@ -111,6 +111,7 @@ export default function ExportImport({ onImported }: Props) {
     try {
       await exportXlsxFile(filtered);
     } catch (err) {
+      if (err instanceof Error && /cancel/i.test(err.message)) return;
       alert(t('export.failed', { msg: err instanceof Error ? err.message : String(err) }));
     }
   }

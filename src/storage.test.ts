@@ -42,6 +42,7 @@ import {
   buildOnCallRows,
   buildRows,
   exportBackupJson,
+  exportXlsxFile,
   exportXlsxMail,
   importJson,
   loadEntries,
@@ -137,6 +138,26 @@ describe('backup / restore round-trip', () => {
     const restored = await importJson(file);
     expect(restored).toEqual(entries);
     expect(loadEntries()).toEqual(entries);
+  });
+
+  it('native file export writes a base64 xlsx then opens the share sheet', async () => {
+    nativePlatform = true;
+    saveEntries([entry('2026-07-13', 1, 30)]);
+
+    await exportXlsxFile();
+
+    expect(writeFileMock).toHaveBeenCalledTimes(1);
+    const writeArgs = writeFileMock.mock.calls[0][0] as {
+      path: string;
+      data: string;
+      encoding?: string;
+    };
+    expect(writeArgs.path).toMatch(/^timesheet-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    // No encoding option: Filesystem must treat the data as base64 binary.
+    expect(writeArgs.encoding).toBeUndefined();
+    expect(shareMock).toHaveBeenCalledWith(
+      expect.objectContaining({ files: ['file:///cache/backup.json'] }),
+    );
   });
 
   it('native backup writes the file then opens the share sheet', async () => {

@@ -198,7 +198,24 @@ function triggerDownload(blob: Blob, filename: string): void {
 
 export async function exportXlsxFile(entries?: Entry[]): Promise<void> {
   const blob = await buildXlsxBlob(entries);
-  triggerDownload(blob, `timesheet-${todayStamp()}.xlsx`);
+  const filename = `timesheet-${todayStamp()}.xlsx`;
+
+  if (Capacitor.isNativePlatform()) {
+    // The Capacitor WebView silently ignores <a download> blobs; write the
+    // file to the app cache and hand it to the native share sheet instead.
+    // No `encoding` option: its absence tells Filesystem the data is base64,
+    // which is required for a binary XLSX (the JSON backup passes UTF8).
+    const base64 = await blobToBase64(blob);
+    const written = await Filesystem.writeFile({
+      path: filename,
+      data: base64,
+      directory: Directory.Cache,
+    });
+    await Share.share({ title: filename, files: [written.uri] });
+    return;
+  }
+
+  triggerDownload(blob, filename);
 }
 
 async function blobToBase64(blob: Blob): Promise<string> {
