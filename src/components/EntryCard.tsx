@@ -4,6 +4,7 @@ import {
   formatDuration,
   formatLongDate,
   formatRatio,
+  isOnCall,
   ratioOverEight,
 } from '../utils/time';
 
@@ -20,8 +21,9 @@ export default function EntryCard({
   onEdit,
   showRatio = false,
 }: Props) {
-  const duration = formatDuration(entryMinutes(entry));
-  const ratio = showRatio ? formatRatio(ratioOverEight(entry)) : null;
+  const oncall = isOnCall(entry);
+  const duration = oncall ? 'Astreinte 🛡️' : formatDuration(entryMinutes(entry));
+  const ratio = showRatio && !oncall ? formatRatio(ratioOverEight(entry)) : null;
   return (
     <div className="bg-surface rounded-xl p-4 border border-surface2 flex items-start gap-3">
       <div className="flex-1 min-w-0">

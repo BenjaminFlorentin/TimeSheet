@@ -5,6 +5,8 @@ import {
   filterThisMonth,
   filterThisWeek,
   formatDuration,
+  oncallOnly,
+  overtimeOnly,
   sortByDateDesc,
   totalMinutes,
 } from '../utils/time';
@@ -16,8 +18,9 @@ import UpdateBanner from '../components/UpdateBanner';
 export default function Summary() {
   const [tick, setTick] = useState(0);
   const entries = loadEntries();
-  const weekTotal = totalMinutes(filterThisWeek(entries));
-  const monthTotal = totalMinutes(filterThisMonth(entries));
+  const weekTotal = totalMinutes(overtimeOnly(filterThisWeek(entries)));
+  const monthTotal = totalMinutes(overtimeOnly(filterThisMonth(entries)));
+  const oncallThisMonth = oncallOnly(filterThisMonth(entries)).length;
   const recent = sortByDateDesc(entries).slice(0, 3);
 
   return (
@@ -40,6 +43,11 @@ export default function Summary() {
           value={formatDuration(monthTotal)}
           subtitle="Heures supp saisies ce mois"
           accent="violet"
+        />
+        <SummaryCard
+          title="🛡️ Astreintes ce mois"
+          value={`${oncallThisMonth} jour${oncallThisMonth > 1 ? 's' : ''}`}
+          subtitle="Jours d'astreinte prestés ce mois"
         />
       </div>
 

@@ -5,6 +5,8 @@ import {
   formatDuration,
   formatRatio,
   groupByMonth,
+  oncallOnly,
+  overtimeOnly,
   ratioOverEight,
   totalMinutes,
 } from '../utils/time';
@@ -15,8 +17,10 @@ export default function Details() {
   const [tick, setTick] = useState(0);
   const entries = loadEntries();
   const groups = groupByMonth(entries);
-  const totalRatio = entries.reduce((sum, e) => sum + ratioOverEight(e), 0);
-  const grandTotal = totalMinutes(entries);
+  const overtime = overtimeOnly(entries);
+  const totalRatio = overtime.reduce((sum, e) => sum + ratioOverEight(e), 0);
+  const grandTotal = totalMinutes(overtime);
+  const oncallTotal = oncallOnly(entries).length;
 
   function handleDelete(id: string) {
     if (!confirm('Supprimer cette entrée ?')) return;
@@ -39,6 +43,11 @@ export default function Details() {
         <p className="text-xs text-muted mt-1">
           Chaque heure supp est divisée par 8 (1 journée = 1)
         </p>
+        {oncallTotal > 0 && (
+          <p className="text-sm mt-2 pt-2 border-t border-surface2">
+            🛡️ {oncallTotal} jour{oncallTotal > 1 ? 's' : ''} d'astreinte
+          </p>
+        )}
       </div>
 
       {groups.length === 0 ? (
@@ -46,8 +55,10 @@ export default function Details() {
       ) : (
         <div className="space-y-6">
           {groups.map((group) => {
-            const groupTotal = totalMinutes(group.entries);
-            const groupRatio = group.entries.reduce(
+            const groupOvertime = overtimeOnly(group.entries);
+            const groupOncall = oncallOnly(group.entries).length;
+            const groupTotal = totalMinutes(groupOvertime);
+            const groupRatio = groupOvertime.reduce(
               (sum, e) => sum + ratioOverEight(e),
               0,
             );
@@ -59,6 +70,7 @@ export default function Details() {
                   </h2>
                   <span className="text-xs text-muted">
                     {formatDuration(groupTotal)} · {formatRatio(groupRatio)}
+                    {groupOncall > 0 && ` · ${groupOncall} 🛡️`}
                   </span>
                 </div>
                 <div className="space-y-2">

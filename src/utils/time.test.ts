@@ -4,6 +4,9 @@ import {
   addMinutesToHm,
   entryMinutes,
   filterByRange,
+  isOnCall,
+  oncallOnly,
+  overtimeOnly,
   filterThisMonth,
   filterThisWeek,
   formatDuration,
@@ -87,6 +90,23 @@ describe('sorting and grouping', () => {
     expect(groups).toHaveLength(2);
     expect(groups[0].entries).toHaveLength(2);
     expect(groups[1].entries).toHaveLength(1);
+  });
+});
+
+describe('on-call helpers', () => {
+  const ot = entry('2026-07-13', 1, 0);
+  const oc: Entry = { id: 'oc', date: '2026-07-14', hours: 0, minutes: 0, kind: 'oncall' };
+
+  it('isOnCall detects the kind, defaulting to overtime', () => {
+    expect(isOnCall(oc)).toBe(true);
+    expect(isOnCall(ot)).toBe(false);
+    expect(isOnCall({ ...ot, kind: 'overtime' })).toBe(false);
+  });
+
+  it('overtimeOnly / oncallOnly split a mixed list', () => {
+    const mixed = [ot, oc];
+    expect(overtimeOnly(mixed)).toEqual([ot]);
+    expect(oncallOnly(mixed)).toEqual([oc]);
   });
 });
 

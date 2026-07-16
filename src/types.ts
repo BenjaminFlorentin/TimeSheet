@@ -1,8 +1,11 @@
+export type EntryKind = 'overtime' | 'oncall';
+
 export type Entry = {
   id: string;
   date: string;
   hours: number;
   minutes: number;
+  kind?: EntryKind;
   note?: string;
 };
 

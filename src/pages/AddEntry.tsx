@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { addEntry, loadEntries, updateEntry } from '../storage';
-import { addMinutesToHm, todayIso } from '../utils/time';
+import { addMinutesToHm, isOnCall, todayIso } from '../utils/time';
+import type { EntryKind } from '../types';
 
 export default function AddEntry() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const editing = id ? loadEntries().find((e) => e.id === id) : undefined;
 
+  const [kind, setKind] = useState<EntryKind>(
+    editing && isOnCall(editing) ? 'oncall' : 'overtime',
+  );
   const [date, setDate] = useState(editing?.date ?? todayIso());
   const [hours, setHours] = useState(editing ? String(editing.hours) : '');
   const [minutes, setMinutes] = useState(editing ? String(editing.minutes) : '');
@@ -17,6 +21,8 @@ export default function AddEntry() {
   if (id && !editing) {
     return <Navigate to="/" replace />;
   }
+
+  const oncall = kind === 'oncall';
 
   function quickAdd(delta: number) {
     const h = parseInt(hours || '0', 10) || 0;
@@ -29,20 +35,25 @@ export default function AddEntry() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const h = parseInt(hours || '0', 10);
-    const m = parseInt(minutes || '0', 10);
-    if (Number.isNaN(h) || Number.isNaN(m) || h < 0 || m < 0 || m > 59 || h > 23) {
-      setError('Valeurs invalides. Heures 0–23, minutes 0–59.');
-      return;
-    }
-    if (h === 0 && m === 0) {
-      setError('Renseigne au moins une minute.');
-      return;
+    let h = 0;
+    let m = 0;
+    if (!oncall) {
+      h = parseInt(hours || '0', 10);
+      m = parseInt(minutes || '0', 10);
+      if (Number.isNaN(h) || Number.isNaN(m) || h < 0 || m < 0 || m > 59 || h > 23) {
+        setError('Valeurs invalides. Heures 0–23, minutes 0–59.');
+        return;
+      }
+      if (h === 0 && m === 0) {
+        setError('Renseigne au moins une minute.');
+        return;
+      }
     }
     const values = {
       date,
       hours: h,
       minutes: m,
+      kind,
       note: note.trim() || undefined,
     };
     if (editing) {
@@ -54,12 +65,18 @@ export default function AddEntry() {
     }
   }
 
+  const title = editing
+    ? oncall
+      ? "Modifier l'astreinte ✨"
+      : "Modifier l'entrée ✨"
+    : oncall
+      ? 'Nouvelle astreinte 🛡️'
+      : 'Nouvelle entrée 🪄';
+
   return (
     <div className="max-w-md mx-auto px-4 pt-6 pb-6">
       <header className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold font-magic">
-          {editing ? "Modifier l'entrée ✨" : 'Nouvelle entrée 🪄'}
-        </h1>
+        <h1 className="text-2xl font-bold font-magic">{title}</h1>
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -70,6 +87,33 @@ export default function AddEntry() {
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="flex gap-2" role="radiogroup" aria-label="Type d'entrée">
+          {(
+            [
+              { value: 'overtime', label: '⚡ Heure supp' },
+              { value: 'oncall', label: '🛡️ Astreinte' },
+            ] as const
+          ).map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={kind === value}
+              onClick={() => {
+                setKind(value);
+                setError(null);
+              }}
+              className={`flex-1 px-2 py-2 text-sm rounded-lg border transition ${
+                kind === value
+                  ? 'bg-accent text-slate-900 border-accent font-medium'
+                  : 'bg-surface text-slate-100 border-surface2'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <label className="block">
           <span className="text-sm text-muted">Date</span>
           <input
@@ -81,6 +125,7 @@ export default function AddEntry() {
           />
         </label>
 
+        {!oncall && (
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="text-sm text-muted">Heures</span>
@@ -137,6 +182,13 @@ export default function AddEntry() {
             ↺
           </button>
         </div>
+        )}
+
+        {oncall && (
+          <p className="text-sm text-muted bg-surface border border-surface2 rounded-lg px-3 py-2">
+            🛡️ Un jour d'astreinte compte pour 1 jour — pas de durée à saisir.
+          </p>
+        )}
 
         <label className="block">
           <span className="text-sm text-muted">Note (optionnel)</span>

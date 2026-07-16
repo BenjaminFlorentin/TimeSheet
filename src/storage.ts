@@ -4,7 +4,13 @@ import { Share } from '@capacitor/share';
 import { EmailComposer } from 'capacitor-email-composer';
 import writeXlsxFile from 'write-excel-file/browser';
 import type { Entry, ExportPayload } from './types';
-import { formatRatio, parseIsoDate, ratioOverEight } from './utils/time';
+import {
+  formatRatio,
+  oncallOnly,
+  overtimeOnly,
+  parseIsoDate,
+  ratioOverEight,
+} from './utils/time';
 
 const STORAGE_KEY = 'timesheet.entries';
 
@@ -57,20 +63,33 @@ type Row = {
   extraHourRatio: string;
 };
 
-export function buildRows(entries: Entry[]): Row[] {
-  const sorted = [...entries].sort((a, b) =>
+function dateParts(e: Entry): { year: string; month: string; day: string } {
+  const d = parseIsoDate(e.date);
+  return {
+    year: d.getFullYear().toString(),
+    month: d.toLocaleString('en-US', { month: 'long' }),
+    day: String(d.getDate()).padStart(2, '0'),
+  };
+}
+
+function sortByDateAsc(entries: Entry[]): Entry[] {
+  return [...entries].sort((a, b) =>
     a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
   );
-  return sorted.map((e) => {
-    const d = parseIsoDate(e.date);
-    return {
-      year: d.getFullYear().toString(),
-      month: d.toLocaleString('en-US', { month: 'long' }),
-      day: String(d.getDate()).padStart(2, '0'),
-      extraHour: (e.hours + e.minutes / 60).toFixed(2),
-      extraHourRatio: formatRatio(ratioOverEight(e)),
-    };
-  });
+}
+
+export function buildRows(entries: Entry[]): Row[] {
+  return sortByDateAsc(overtimeOnly(entries)).map((e) => ({
+    ...dateParts(e),
+    extraHour: (e.hours + e.minutes / 60).toFixed(2),
+    extraHourRatio: formatRatio(ratioOverEight(e)),
+  }));
+}
+
+export function buildOnCallRows(
+  entries: Entry[],
+): Array<{ year: string; month: string; day: string }> {
+  return sortByDateAsc(oncallOnly(entries)).map(dateParts);
 }
 
 function todayStamp(): string {
@@ -113,31 +132,52 @@ export function fallbackMailWithDownload(blob: Blob, filename: string): void {
   window.location.href = `mailto:?subject=${encodeURIComponent(MAIL_SUBJECT)}`;
 }
 
-async function buildXlsxBlob(entries?: Entry[]): Promise<Blob> {
-  const rows = buildRows(entries ?? loadEntries());
-  const headerRow = HEADERS.map((label) => ({
+const ONCALL_HEADERS = ['Year', 'Month', 'Day'];
+
+function headerCells(labels: string[]) {
+  return labels.map((label) => ({
     value: label,
     fontWeight: 'bold' as const,
     align: 'center' as const,
     alignVertical: 'center' as const,
     wrap: true,
   }));
-  const dataRows = rows.map((r) =>
-    [r.year, r.month, r.day, r.extraHour, r.extraHourRatio].map((v) => ({
-      value: v,
-      align: 'left' as const,
-    })),
-  );
-  const workbook = await writeXlsxFile([headerRow, ...dataRows], {
-    sheet: 'TimeSheet',
-    columns: [
-      { width: 8 },
-      { width: 14 },
-      { width: 6 },
-      { width: 14 },
-      { width: 18 },
-    ],
-  });
+}
+
+function bodyCells(values: string[]) {
+  return values.map((v) => ({ value: v, align: 'left' as const }));
+}
+
+async function buildXlsxBlob(entries?: Entry[]): Promise<Blob> {
+  const source = entries ?? loadEntries();
+  const overtimeSheet = [
+    headerCells(HEADERS),
+    ...buildRows(source).map((r) =>
+      bodyCells([r.year, r.month, r.day, r.extraHour, r.extraHourRatio]),
+    ),
+  ];
+  const oncallSheet = [
+    headerCells(ONCALL_HEADERS),
+    ...buildOnCallRows(source).map((r) => bodyCells([r.year, r.month, r.day])),
+  ];
+  const workbook = await writeXlsxFile([
+    {
+      data: overtimeSheet,
+      sheet: 'TimeSheet',
+      columns: [
+        { width: 8 },
+        { width: 14 },
+        { width: 6 },
+        { width: 14 },
+        { width: 18 },
+      ],
+    },
+    {
+      data: oncallSheet,
+      sheet: 'On-call',
+      columns: [{ width: 8 }, { width: 14 }, { width: 6 }],
+    },
+  ]);
   return workbook.toBlob();
 }
 

@@ -1,5 +1,17 @@
 import type { Entry } from '../types';
 
+export function isOnCall(e: Entry): boolean {
+  return e.kind === 'oncall';
+}
+
+export function overtimeOnly(entries: Entry[]): Entry[] {
+  return entries.filter((e) => !isOnCall(e));
+}
+
+export function oncallOnly(entries: Entry[]): Entry[] {
+  return entries.filter(isOnCall);
+}
+
 export function totalMinutes(entries: Entry[]): number {
   return entries.reduce((sum, e) => sum + e.hours * 60 + e.minutes, 0);
 }

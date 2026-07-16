@@ -38,6 +38,7 @@ vi.mock('@capacitor/filesystem', () => ({
 
 import {
   buildBackupPayload,
+  buildOnCallRows,
   buildRows,
   exportBackupJson,
   exportXlsxMail,
@@ -50,6 +51,10 @@ import { filterByRange } from './utils/time';
 
 function entry(date: string, hours: number, minutes: number): Entry {
   return { id: `${date}-${hours}-${minutes}`, date, hours, minutes };
+}
+
+function oncall(date: string): Entry {
+  return { id: `oncall-${date}`, date, hours: 0, minutes: 0, kind: 'oncall' };
 }
 
 beforeEach(() => {
@@ -78,6 +83,35 @@ describe('updateEntry', () => {
 });
 
 describe('backup / restore round-trip', () => {
+  it('keeps the on-call kind through export and import', async () => {
+    const entries = [entry('2026-07-13', 1, 30), oncall('2026-07-19')];
+    saveEntries(entries);
+    const payload = buildBackupPayload();
+    localStorage.clear();
+
+    const file = new File([JSON.stringify(payload)], 'backup.json', {
+      type: 'application/json',
+    });
+    const restored = await importJson(file);
+    expect(restored).toEqual(entries);
+    expect(restored[1].kind).toBe('oncall');
+  });
+
+  it('imports pre-oncall backups (no kind field) as overtime', async () => {
+    const legacy = {
+      version: 1,
+      entries: [{ id: 'a', date: '2026-05-01', hours: 2, minutes: 0 }],
+    };
+    const file = new File([JSON.stringify(legacy)], 'old-backup.json', {
+      type: 'application/json',
+    });
+    const restored = await importJson(file);
+    expect(restored).toHaveLength(1);
+    expect(restored[0].kind).toBeUndefined();
+    expect(buildRows(restored)).toHaveLength(1);
+    expect(buildOnCallRows(restored)).toHaveLength(0);
+  });
+
   it('importJson restores exactly what buildBackupPayload produced', async () => {
     const entries = [entry('2026-07-13', 1, 30), entry('2026-06-01', 2, 15)];
     saveEntries(entries);
@@ -138,6 +172,26 @@ describe('buildRows (export columns)', () => {
   it('sorts rows in ascending date order', () => {
     const rows = buildRows([entry('2026-07-13', 1, 0), entry('2026-07-01', 1, 0)]);
     expect(rows.map((r) => r.day)).toEqual(['01', '13']);
+  });
+
+  it('excludes on-call days from the overtime sheet', () => {
+    const rows = buildRows([entry('2026-07-13', 1, 0), oncall('2026-07-14')]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].day).toBe('13');
+  });
+});
+
+describe('buildOnCallRows (On-call sheet)', () => {
+  it('lists only on-call days, sorted ascending, with English months', () => {
+    const rows = buildOnCallRows([
+      entry('2026-07-13', 1, 0),
+      oncall('2026-07-20'),
+      oncall('2026-01-05'),
+    ]);
+    expect(rows).toEqual([
+      { year: '2026', month: 'January', day: '05' },
+      { year: '2026', month: 'July', day: '20' },
+    ]);
   });
 });
 
